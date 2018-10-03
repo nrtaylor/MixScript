@@ -10,22 +10,19 @@
 #include "WavAudioSource.h"
 
 //==============================================================================
-MainComponent::MainComponent()
+MainComponent::MainComponent() :
+    track_playing(nullptr),
+    track_incoming(nullptr)    
 {
     // Make sure you set the size of the component after
     // you add any child components.
     setSize (800, 600);
     
-    MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
-        "C:\\Programming\\MixScript\\mix_script_test_file_juju.wav");
+    track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
+        "C:\\Programming\\MixScript\\mix_script_test_file_juju.wav")));
 
     //MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
     //    "C:\\Programming\\MixScript\\one_secondno.wav");
-
-    if (audio_source != nullptr)
-    {
-        delete audio_source;
-    }
 
     // specify the number of input and output channels that we want to open
     setAudioChannels (0, 2);
@@ -58,6 +55,13 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     // Right now we are not producing any data, in which case we need to clear the buffer
     // (to prevent the output of random noise)
     bufferToFill.clearActiveBufferRegion();
+
+    //const int channels = bufferToFill.buffer->getNumChannels();
+    //int samples_remaining = bufferToFill.numSamples;
+    //int sample_offset = bufferToFill.startSample;
+
+    MixScript::ReadSamples(track_playing, bufferToFill.buffer->getWritePointer(0), bufferToFill.buffer->getWritePointer(1),
+        bufferToFill.numSamples);
 }
 
 void MainComponent::releaseResources()

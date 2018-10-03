@@ -25,22 +25,41 @@ namespace MixScript
         }
     };
 
-    struct WaveAudioFormat {        
-        uint32_t channels;
-        uint32_t sample_rate;
-        uint32_t bit_rate;
-    };
+    float WaveAudioSource::Read() {
+        const int32_t next = (int32_t)((*(const uint32_t*)read_pos) << 16);
+        read_pos += 2;
 
-    struct WaveAudioSource {
-        std::unique_ptr<WaveAudioBuffer> buffer;
-        WaveAudioFormat format;
-        uint8_t* const audio;
+        return next * kSampleRatio;
+    }
 
-        WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_):
-            buffer(buffer_),
-            audio(audio_start_pos_){
+    void WaveAudioSource::TryWrap() {
+        if (read_pos >= audio_end) {
+            read_pos = audio_start;
         }
-    };
+    }
+
+    WaveAudioSource::~WaveAudioSource() {
+        OutputDebugString("Destroying Source");
+    }
+
+    WaveAudioSource::WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_):
+        buffer(buffer_),
+        audio_start(audio_start_pos_),
+        audio_end(audio_end_pos_) {
+        read_pos = audio_start_pos_;
+    }
+
+    void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
+        WaveAudioSource& source = *source_.get();
+
+        for (int32_t i = 0; i < samples_to_read; ++i) {
+            source.TryWrap();
+            *left = source.Read();
+            *right = source.Read();
+            ++left;
+            ++right;
+        }
+    }
 
     WaveAudioSource* ParseWaveFile(WaveAudioBuffer* buffer) {
         WaveAudioFormat format;
@@ -48,6 +67,7 @@ namespace MixScript
         uint8_t* eof_pos = buffer->samples + buffer->file_size;
 
         uint8_t* audio_pos = nullptr;        
+        uint32_t data_chunk_size = 0;
         assert(*(uint32_t*)read_pos == (uint32_t)('R' | ('I' << 8) | ('F' << 16) | ('F' << 24)));
         read_pos += 4 + 4 + 4; // skip past RIFF chunk
 
@@ -83,7 +103,7 @@ namespace MixScript
             }                
             case (uint32_t)('d' | ('a' << 8) | ('t' << 16) | ('a' << 24)) :
                 audio_pos = read_pos;
-                // store this chunk size somewhere
+                data_chunk_size = chunk_size;                
                 break;
             case (uint32_t)('c' | ('u' << 8) | ('e' << 16) | (' ' << 24)) :
             {
@@ -114,10 +134,10 @@ namespace MixScript
             read_pos += chunk_size;
         }
 
-        return new WaveAudioSource(buffer, audio_pos);
+        return new WaveAudioSource(buffer, audio_pos, audio_pos + data_chunk_size);
     }
 
-    WaveAudioSource* LoadWaveFile(const char* file_path) {
+    std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path) {
 
         uint8_t* large_file_buffer = new uint8_t[kMaxAudioBufferSize];
 
@@ -132,7 +152,7 @@ namespace MixScript
         }
 
         WaveAudioBuffer* wav_buffer = new WaveAudioBuffer(large_file_buffer, static_cast<uint32_t>(bytes_read));
-        return ParseWaveFile(wav_buffer);
+        return std::unique_ptr<WaveAudioSource>(ParseWaveFile(wav_buffer));
     }
 
 }
