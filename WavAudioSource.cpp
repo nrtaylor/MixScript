@@ -42,11 +42,26 @@ namespace MixScript
         OutputDebugString("Destroying Source");
     }
 
-    WaveAudioSource::WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_):
+    WaveAudioSource::WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_,
+        const std::vector<uint32_t>& cue_offsets):
         buffer(buffer_),
         audio_start(audio_start_pos_),
         audio_end(audio_end_pos_) {
         read_pos = audio_start_pos_;
+        for (const uint32_t cue_offset : cue_offsets) {
+            cue_starts.push_back(audio_start + 4*cue_offset);
+        }
+    }
+
+    void ResetToCue(std::unique_ptr<WaveAudioSource>& source_, const uint32_t cue_id) {
+        WaveAudioSource& source = *source_.get();
+
+        if (cue_id == 0) {
+            source.read_pos = source.audio_start;
+        }
+        if (cue_id <= source.cue_starts.size()) {
+            source.read_pos = source.cue_starts[cue_id - 1];
+        }
     }
 
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
@@ -71,6 +86,7 @@ namespace MixScript
         assert(*(uint32_t*)read_pos == (uint32_t)('R' | ('I' << 8) | ('F' << 16) | ('F' << 24)));
         read_pos += 4 + 4 + 4; // skip past RIFF chunk
 
+        std::vector<uint32_t> cues;
         while (read_pos < eof_pos - 8) {
             const uint32_t chunk_id = *(uint32_t*)read_pos;
             read_pos += 4;
@@ -111,8 +127,7 @@ namespace MixScript
                 uint8_t* cue_pos = read_pos;
                 const uint32_t num_cues = *(decltype(num_cues)*)cue_pos;
                 cue_pos += sizeof(num_cues);
-
-                std::vector<uint32_t> cues;
+                
                 for (uint32_t i = 0; i < num_cues; ++i) {
                     cue_pos += 8; // skip ID and position
                     assert(*(uint32_t*)cue_pos == (uint32_t)('d' | ('a' << 8) | ('t' << 16) | ('a' << 24)));
@@ -134,7 +149,7 @@ namespace MixScript
             read_pos += chunk_size;
         }
 
-        return new WaveAudioSource(buffer, audio_pos, audio_pos + data_chunk_size);
+        return new WaveAudioSource(buffer, audio_pos, audio_pos + data_chunk_size, cues);
     }
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path) {

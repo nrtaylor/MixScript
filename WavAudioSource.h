@@ -2,6 +2,7 @@
 // Author - Nic Taylor
 
 #pragma once
+#include <vector>
 #include <memory>
 
 namespace MixScript
@@ -19,6 +20,7 @@ namespace MixScript
         WaveAudioFormat format;
         uint8_t* const audio_start;
         uint8_t* const audio_end;
+        std::vector<uint8_t*> cue_starts;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
         const uint8_t* read_pos;
@@ -27,10 +29,12 @@ namespace MixScript
 
         ~WaveAudioSource();
 
-        WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_);
+        WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_,
+            const std::vector<uint32_t>& cue_offsets);
     };
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
 
+    void ResetToCue(std::unique_ptr<WaveAudioSource>& source, const uint32_t cue_id);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 }

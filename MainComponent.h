@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include <atomic>
 
 namespace MixScript {
     struct WaveAudioSource;
@@ -31,6 +32,8 @@ public:
     void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override;
     void releaseResources() override;
 
+    bool keyPressed(const KeyPress & key) override;
+
     //==============================================================================
     void paint (Graphics& g) override;
     void resized() override;
@@ -40,6 +43,8 @@ private:
     // Your private member variables go here...
     std::unique_ptr<MixScript::WaveAudioSource> track_playing;
     std::unique_ptr<MixScript::WaveAudioSource> track_incoming;
+
+    std::atomic_uint32_t queued_cue;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

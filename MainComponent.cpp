@@ -12,7 +12,8 @@
 //==============================================================================
 MainComponent::MainComponent() :
     track_playing(nullptr),
-    track_incoming(nullptr)    
+    track_incoming(nullptr),
+    queued_cue(0)
 {
     // Make sure you set the size of the component after
     // you add any child components.
@@ -26,6 +27,9 @@ MainComponent::MainComponent() :
 
     // specify the number of input and output channels that we want to open
     setAudioChannels (0, 2);
+
+    //addKeyListener(this);
+    setWantsKeyboardFocus(true);
 }
 
 MainComponent::~MainComponent()
@@ -60,6 +64,14 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     //int samples_remaining = bufferToFill.numSamples;
     //int sample_offset = bufferToFill.startSample;
 
+    uint32_t cue_pos = queued_cue.load();
+    if (cue_pos != 0) {
+        queued_cue.compare_exchange_strong(cue_pos, 0); // TODO: don't block on audio thread
+        if (cue_pos != 0) {
+            MixScript::ResetToCue(track_playing, cue_pos);
+        }
+    }
+
     MixScript::ReadSamples(track_playing, bufferToFill.buffer->getWritePointer(0), bufferToFill.buffer->getWritePointer(1),
         bufferToFill.numSamples);
 }
@@ -70,6 +82,16 @@ void MainComponent::releaseResources()
     // restarted due to a setting change.
 
     // For more details, see the help for AudioProcessor::releaseResources()
+}
+
+bool MainComponent::keyPressed(const KeyPress &key)
+{
+    const int key_code = key.getKeyCode();
+    if (key_code >= (int)'0' && key_code <= (int)'9') {
+        queued_cue = key_code - (int)'0';
+        return true;
+    }
+    return false;
 }
 
 //==============================================================================
