@@ -53,6 +53,17 @@ namespace MixScript
         }
     }
 
+    int32_t WaveAudioSource::Cue(uint8_t const * const position) const {
+        int32_t cue_id = 0;
+        for (uint8_t const * const cue_pos : cue_starts) {
+            ++cue_id;
+            if (cue_pos == position) {
+                return cue_id;
+            }            
+        }
+        return -1;
+    }
+
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source_, const uint32_t cue_id) {
         WaveAudioSource& source = *source_.get();
 
@@ -71,6 +82,32 @@ namespace MixScript
             source.TryWrap();
             *left = source.Read();
             *right = source.Read();
+            ++left;
+            ++right;
+        }
+    }
+
+    void Mix(std::unique_ptr<WaveAudioSource>& playing_, std::unique_ptr<WaveAudioSource>& incoming_,
+        float* left, float* right, int samples_to_read) {
+
+        WaveAudioSource& playing = *playing_.get();
+        WaveAudioSource& incoming = *incoming_.get();
+
+        for (int32_t i = 0; i < samples_to_read; ++i) {
+            playing.TryWrap();
+            incoming.TryWrap();
+            if (playing.read_pos < playing.cue_starts[0]) {
+                *left = playing.Read();
+                *right = playing.Read();
+            }
+            else {
+                *left = playing.Read() + incoming.Read();
+                *right = playing.Read() + incoming.Read();
+            }
+            int32_t cue_id = playing.Cue(playing.read_pos);
+            if (cue_id > 0) {
+                ResetToCue(incoming_, cue_id);
+            }
             ++left;
             ++right;
         }
@@ -137,6 +174,7 @@ namespace MixScript
                     assert(*(uint32_t*)cue_pos == 0);
                     cue_pos += 4; // skip block start
                     const uint32_t cue_sample = *(decltype(cue_sample)*)cue_pos;
+                    assert(cues.size() == 0 || cues.back() < cue_sample);
                     cues.push_back(cue_sample);
                     cue_pos += sizeof(cue_sample);
                 }

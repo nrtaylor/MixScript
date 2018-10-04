@@ -20,6 +20,9 @@ MainComponent::MainComponent() :
     setSize (800, 600);
     
     track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
+        "C:\\Programming\\MixScript\\mix_script_test_file_seed.wav")));
+
+    track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
         "C:\\Programming\\MixScript\\mix_script_test_file_juju.wav")));
 
     //MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
@@ -72,8 +75,11 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         }
     }
 
-    MixScript::ReadSamples(track_playing, bufferToFill.buffer->getWritePointer(0), bufferToFill.buffer->getWritePointer(1),
-        bufferToFill.numSamples);
+    //MixScript::ReadSamples(track_playing, bufferToFill.buffer->getWritePointer(0), bufferToFill.buffer->getWritePointer(1),
+    //    bufferToFill.numSamples);
+
+    MixScript::Mix(track_playing, track_incoming, bufferToFill.buffer->getWritePointer(0),
+        bufferToFill.buffer->getWritePointer(1), bufferToFill.numSamples);
 }
 
 void MainComponent::releaseResources()
