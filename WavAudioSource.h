@@ -16,8 +16,8 @@ namespace MixScript
     };
 
     struct WaveAudioSource {
-        std::unique_ptr<WaveAudioBuffer> buffer;
         WaveAudioFormat format;
+        std::unique_ptr<WaveAudioBuffer> buffer;        
         uint8_t* const audio_start;
         uint8_t* const audio_end;
         std::vector<uint8_t*> cue_starts;
@@ -30,11 +30,12 @@ namespace MixScript
 
         ~WaveAudioSource();
 
-        WaveAudioSource(WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_,
-            const std::vector<uint32_t>& cue_offsets);
+        WaveAudioSource(const WaveAudioFormat& format_, WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_,
+            uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
     };
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
+    bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source, const uint32_t cue_id);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);

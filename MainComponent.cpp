@@ -25,6 +25,7 @@ MainComponent::MainComponent() :
     track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
         "C:\\Programming\\MixScript\\mix_script_test_file_juju.wav")));
 
+    //MixScript::WriteWaveFile("C:\\Programming\\MixScript\\Output\\mix_script_test_file_juju.wav", track_incoming);
     //MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
     //    "C:\\Programming\\MixScript\\one_secondno.wav");
 
