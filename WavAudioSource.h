@@ -21,11 +21,12 @@ namespace MixScript
         uint8_t* const audio_start;
         uint8_t* const audio_end;
         std::vector<uint8_t*> cue_starts;
+        uint32_t mix_duration;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
         const uint8_t* read_pos;
         float Read();
-        int32_t Cue(uint8_t const * const position) const;
+        bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
         void TryWrap();
 
         ~WaveAudioSource();

@@ -52,18 +52,41 @@ namespace MixScript
         for (const uint32_t cue_offset : cue_offsets) {
             cue_starts.push_back(audio_start + 4*cue_offset);
         }
+        if (cue_starts.size() > 1) {
+            mix_duration = static_cast<decltype(mix_duration)>(cue_starts.back() - cue_starts.front());
+            mix_duration /= format.channels;
+        }
+        else {
+            mix_duration = 0;
+        }
     }
 
-    int32_t WaveAudioSource::Cue(uint8_t const * const position) const {
-        int32_t cue_id = 0;
+    // Returns true if on the cue
+    bool WaveAudioSource::Cue(uint8_t const * const position, uint32_t& cue_id) const {
+        cue_id = 0;
         for (uint8_t const * const cue_pos : cue_starts) {
             ++cue_id;
             if (cue_pos == position) {
                 return cue_id;
-            }            
+            }
+            else if (cue_pos > position) {
+                --cue_id;
+                break;
+            }
         }
-        return -1;
+        return false;
     }
+
+    //int32_t WaveAudioSource::Cue(uint8_t const * const position) const {
+    //    int32_t cue_id = 0;
+    //    for (uint8_t const * const cue_pos : cue_starts) {
+    //        ++cue_id;
+    //        if (cue_pos == position) {
+    //            return cue_id;
+    //        }            
+    //    }
+    //    return -1;
+    //}
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source_, const uint32_t cue_id) {
         WaveAudioSource& source = *source_.get();
@@ -91,7 +114,27 @@ namespace MixScript
     float DecibelToGain(const float db) {
         static const float log_10 = 2.302585f;
         return expf(db * log_10);
-    }    
+    }
+
+    enum MixFadeType : int32_t {
+        MFT_LINEAR = 1,
+        MFT_SQRT,
+        MFT_TRIG,
+        MFT_EXP,
+    };
+
+    float InterpolateMix(const float param, const float inv_duration, const MixFadeType fade_type) {
+        switch (fade_type) {
+        case MFT_LINEAR:
+            return param * inv_duration;
+        case MFT_SQRT:
+            return sqrtf(param * inv_duration);
+        case MFT_TRIG:
+            return sinf(param * inv_duration * M_PI_2);
+        case MFT_EXP:
+            return expf(param * inv_duration)/M_E;
+        }
+    }
 
     void Mix(std::unique_ptr<WaveAudioSource>& playing_, std::unique_ptr<WaveAudioSource>& incoming_,
         float* left, float* right, int samples_to_read) {
@@ -99,26 +142,31 @@ namespace MixScript
         WaveAudioSource& playing = *playing_.get();
         WaveAudioSource& incoming = *incoming_.get();
 
+        const uint8_t* front = playing.cue_starts.front();
+        const float inv_duration = 1.f / playing.mix_duration;
+        const float inv_cue_size = 1.f / playing.cue_starts.size();
         for (int32_t i = 0; i < samples_to_read; ++i) {
             playing.TryWrap();
             incoming.TryWrap();
-            if (playing.read_pos < playing.cue_starts[0]) {
+            uint32_t cue_id = 0;
+            bool on_cue = playing.Cue(playing.read_pos, cue_id);
+            if (playing.read_pos < front) {
                 *left = playing.Read();
                 *right = playing.Read();
             }
             else {
-                *left = playing.Read() + incoming.Read();
-                *right = playing.Read() + incoming.Read();
-            }
-            int32_t cue_id = playing.Cue(playing.read_pos);
-            if (cue_id > 0) {
+                const uint32_t delta = static_cast<decltype(delta)>(playing.read_pos - front)/playing.format.channels;
+                // Continuous Mode
+                //const float gain = InterpolateMix(delta, inv_duration, MFT_EXP);
+                const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
+                *left = playing.Read() + incoming.Read() * gain;
+                *right = playing.Read() + incoming.Read() * gain;
+            }            
+            if (on_cue) {
                 ResetToCue(incoming_, cue_id);
             }
-            else {
-                cue_id = incoming.Cue(incoming.read_pos);
-                if (cue_id > 0) {
-                    ResetToCue(playing_, cue_id);
-                }
+            else if (incoming.Cue(incoming.read_pos, cue_id)) {
+                ResetToCue(playing_, cue_id);
             }
             ++left;
             ++right;
