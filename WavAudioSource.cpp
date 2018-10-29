@@ -11,6 +11,14 @@
 #include <vector>
 #include <assert.h>
 
+namespace nMath {
+    template <typename T>
+    inline T Max(T lhs, T rhs)
+    {
+        return (lhs > rhs) ? lhs : rhs;
+    }
+}
+
 namespace MixScript
 {
     const uint32_t kMaxAudioEsimatedDuration = 10 * 60; // minutes
@@ -32,6 +40,13 @@ namespace MixScript
         return next * kSampleRatio;
     }
 
+    void WaveAudioSource::Write(const float value) {
+        const float sample_max = (float)((1 << (format.bit_rate - 1)) - 1);        
+        const int32_t next = (uint32_t)roundf(value * sample_max);
+        memcpy(write_pos, (uint8_t*)&next, format.bit_rate);
+        write_pos += 2; // TODO: Byte rate
+    }
+
     void WaveAudioSource::TryWrap() {
         if (read_pos >= audio_end) {
             read_pos = audio_start;
@@ -49,6 +64,7 @@ namespace MixScript
         audio_start(audio_start_pos_),
         audio_end(audio_end_pos_) {
         read_pos = audio_start_pos_;
+        write_pos = audio_start_pos_;
         for (const uint32_t cue_offset : cue_offsets) {
             cue_starts.push_back(audio_start + 4*cue_offset);
         }
@@ -136,8 +152,9 @@ namespace MixScript
         }
     }
 
-    void Mix(std::unique_ptr<WaveAudioSource>& playing_, std::unique_ptr<WaveAudioSource>& incoming_,
-        float* left, float* right, int samples_to_read) {
+    template<class T>
+    void Mixer::Mix(std::unique_ptr<WaveAudioSource>& playing_, std::unique_ptr<WaveAudioSource>& incoming_,
+        T& output_writer, int samples_to_read) {
 
         WaveAudioSource& playing = *playing_.get();
         WaveAudioSource& incoming = *incoming_.get();
@@ -145,22 +162,24 @@ namespace MixScript
         const uint8_t* front = playing.cue_starts.front();
         const float inv_duration = 1.f / playing.mix_duration;
         const float inv_cue_size = 1.f / playing.cue_starts.size();
+        float left = 0;
+        float right = 0;
         for (int32_t i = 0; i < samples_to_read; ++i) {
             playing.TryWrap();
             incoming.TryWrap();
             uint32_t cue_id = 0;
             bool on_cue = playing.Cue(playing.read_pos, cue_id);
             if (playing.read_pos < front) {
-                *left = playing.Read();
-                *right = playing.Read();
+                left = playing.Read();
+                right = playing.Read();
             }
             else {
                 const uint32_t delta = static_cast<decltype(delta)>(playing.read_pos - front)/playing.format.channels;
                 // Continuous Mode
                 //const float gain = InterpolateMix(delta, inv_duration, MFT_EXP);
                 const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
-                *left = playing.Read() + incoming.Read() * gain;
-                *right = playing.Read() + incoming.Read() * gain;
+                left = playing.Read() + incoming.Read() * gain;
+                right = playing.Read() + incoming.Read() * gain;
             }            
             if (on_cue) {
                 ResetToCue(incoming_, cue_id);
@@ -168,9 +187,39 @@ namespace MixScript
             else if (incoming.Cue(incoming.read_pos, cue_id)) {
                 ResetToCue(playing_, cue_id);
             }
-            ++left;
-            ++right;
+            output_writer.WriteLeft(left);
+            output_writer.WriteRight(right);
         }
+    }
+
+    void PCMOutputWriter::WriteLeft(const float left_) {
+        source->Write(left_);
+    }
+    void PCMOutputWriter::WriteRight(const float right_) {
+        source->Write(right_);
+    }
+
+    WaveAudioSource* Render(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming) {
+        const uint32_t playing_size = playing->audio_end - playing->audio_start;
+        const uint32_t playing_offset = playing->cue_starts.front() - playing->audio_start;
+
+        const uint32_t incoming_size = incoming->audio_end - incoming->cue_starts.front();
+
+        const uint32_t render_size = nMath::Max(playing_size, incoming_size + playing_offset);
+
+        const uint32_t padding = 4;
+        WaveAudioBuffer* wav_buffer = new WaveAudioBuffer(new uint8_t[render_size + padding], static_cast<uint32_t>(render_size));
+        uint8_t* const audio_start = &wav_buffer->samples[0];
+        WaveAudioSource* output_source = new WaveAudioSource(playing->format, wav_buffer, audio_start,
+            audio_start + render_size, {});
+
+        PCMOutputWriter output_writer = { output_source };
+
+        MixScript::Mixer mixer;
+        mixer.Mix(playing, incoming, output_writer,
+            render_size / (playing->format.channels * playing->format.bit_rate / 8));
+
+        return output_source;
     }
 
     WaveAudioSource* ParseWaveFile(WaveAudioBuffer* buffer) {

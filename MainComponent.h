@@ -45,6 +45,9 @@ private:
     std::unique_ptr<MixScript::WaveAudioSource> track_incoming;
 
     std::atomic_uint32_t queued_cue;
+    std::atomic_bool playback_paused;
+
+    void ExportRender();    
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
