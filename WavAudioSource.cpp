@@ -64,6 +64,7 @@ namespace MixScript
         audio_start(audio_start_pos_),
         audio_end(audio_end_pos_) {
         read_pos = audio_start_pos_;
+        last_read_pos = 0;
         write_pos = audio_start_pos_;
         for (const uint32_t cue_offset : cue_offsets) {
             cue_starts.push_back(audio_start + 4*cue_offset);
@@ -113,6 +114,7 @@ namespace MixScript
         if (cue_id <= source.cue_starts.size()) {
             source.read_pos = source.cue_starts[cue_id - 1];
         }
+        source.last_read_pos = static_cast<int32_t>(source.read_pos - source.audio_start);
     }
 
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
@@ -190,6 +192,8 @@ namespace MixScript
             output_writer.WriteLeft(left);
             output_writer.WriteRight(right);
         }
+        playing.last_read_pos = static_cast<int32_t>(playing.read_pos - playing.audio_start);
+        incoming.last_read_pos = static_cast<int32_t>(incoming.read_pos - incoming.audio_start);
     }
 
     void PCMOutputWriter::WriteLeft(const float left_) {

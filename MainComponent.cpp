@@ -11,13 +11,18 @@
 
 //==============================================================================
 MainComponent::MainComponent() :
+    menuBar(this),
     track_playing(nullptr),
     track_incoming(nullptr),
     queued_cue(0)
 {
+    // TODO: MenuBarModel
+
     // Make sure you set the size of the component after
     // you add any child components.
-    setSize (800, 600);
+    setSize (1024, 600);
+
+    addAndMakeVisible(menuBar);
     
     //track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
     //    "C:\\Programming\\MixScript\\mix_script_test_file_seed.wav")));
@@ -39,6 +44,7 @@ MainComponent::MainComponent() :
 
     //addKeyListener(this);
     setWantsKeyboardFocus(true);
+    startTimerHz(60);
 }
 
 MainComponent::~MainComponent()
@@ -130,6 +136,41 @@ void MainComponent::ExportRender() {
     playback_paused = paused_state;
 }
 
+StringArray MainComponent::getMenuBarNames()
+{
+    StringArray names;
+    names.add("File");
+    return names;
+}
+
+PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*menuName*/)
+{
+    PopupMenu menu;
+
+    if (topLevelMenuIndex == 0)
+    {
+        // TODO: Commands should be managed by the Application in Main.cpp.
+        menu.addItem(1, "Save");
+        menu.addItem(2, "Export");
+    }
+
+    return menu;
+}
+
+void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) {
+    switch (menuItemID)
+    {
+    case 2:
+        ExportRender();
+    default:
+        break;
+    }
+}
+
+void MainComponent::timerCallback() {
+    repaint();
+}
+
 //==============================================================================
 void MainComponent::paint (Graphics& g)
 {
@@ -137,6 +178,28 @@ void MainComponent::paint (Graphics& g)
     g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
 
     // You can add your drawing code here!
+    const Rectangle<int> bounds = g.getClipBounds();
+    Rectangle<int> audio_file = bounds;
+    Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
+    audio_file_form.reduce(12, 12);
+
+    g.setColour(Colour::fromRGB(0, 0, 0x88));
+    g.drawRect(audio_file_form);
+    audio_file_form.reduce(1,1);
+
+    if (track_playing) {
+        uint8_t* const audio_start = track_playing->audio_start;
+        const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
+        for (const uint8_t* cue_pos : track_playing->cue_starts) {
+            const float ratio = (cue_pos - audio_start) * inv_duration;
+            const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+            g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
+        }
+        g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
+        const float play_pos_ratio = track_playing->last_read_pos * inv_duration;
+        const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+        g.drawLine(play_pos, audio_file_form.getBottom(), play_pos, audio_file_form.getTopLeft().y);
+    }
 }
 
 void MainComponent::resized()
@@ -144,4 +207,5 @@ void MainComponent::resized()
     // This is called when the MainContentComponent is resized.
     // If you add any child components, this is where you should
     // update their positions.
+    menuBar.setBounds(0, 0, getWidth(), 24);
 }

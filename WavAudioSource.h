@@ -3,6 +3,7 @@
 
 #pragma once
 #include <vector>
+#include <atomic>
 #include <memory>
 
 namespace MixScript
@@ -25,6 +26,7 @@ namespace MixScript
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
         const uint8_t* read_pos;
+        std::atomic_int32_t last_read_pos;
         uint8_t* write_pos;
         float Read();
         void Write(const float value);
