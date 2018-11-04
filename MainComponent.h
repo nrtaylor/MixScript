@@ -48,12 +48,13 @@ private:
     std::unique_ptr<MixScript::WaveAudioSource> track_playing;
     std::unique_ptr<MixScript::WaveAudioSource> track_incoming;
 
-    std::atomic_uint32_t queued_cue;
+    std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;
 
     MenuBarComponent menuBar;
 
-    void ExportRender();    
+    void ExportRender();
+    void SaveProject();
 
     void timerCallback() override;
 

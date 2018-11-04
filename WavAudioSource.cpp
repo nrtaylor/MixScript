@@ -11,6 +11,9 @@
 #include <vector>
 #include <assert.h>
 
+#include <iostream>
+#include <fstream>
+
 namespace nMath {
     template <typename T>
     inline T Max(T lhs, T rhs)
@@ -57,8 +60,9 @@ namespace MixScript
         OutputDebugString("Destroying Source");
     }
 
-    WaveAudioSource::WaveAudioSource(const WaveAudioFormat& format_, WaveAudioBuffer* buffer_, 
+    WaveAudioSource::WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
         uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets):
+        file_name(file_path),
         format(format_),
         buffer(buffer_),
         audio_start(audio_start_pos_),
@@ -84,7 +88,7 @@ namespace MixScript
         for (uint8_t const * const cue_pos : cue_starts) {
             ++cue_id;
             if (cue_pos == position) {
-                return cue_id;
+                return true;
             }
             else if (cue_pos > position) {
                 --cue_id;
@@ -94,24 +98,13 @@ namespace MixScript
         return false;
     }
 
-    //int32_t WaveAudioSource::Cue(uint8_t const * const position) const {
-    //    int32_t cue_id = 0;
-    //    for (uint8_t const * const cue_pos : cue_starts) {
-    //        ++cue_id;
-    //        if (cue_pos == position) {
-    //            return cue_id;
-    //        }            
-    //    }
-    //    return -1;
-    //}
-
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source_, const uint32_t cue_id) {
         WaveAudioSource& source = *source_.get();
 
         if (cue_id == 0) {
             source.read_pos = source.audio_start;
         }
-        if (cue_id <= source.cue_starts.size()) {
+        else if (cue_id <= source.cue_starts.size()) {
             source.read_pos = source.cue_starts[cue_id - 1];
         }
         source.last_read_pos = static_cast<int32_t>(source.read_pos - source.audio_start);
@@ -196,6 +189,25 @@ namespace MixScript
         incoming.last_read_pos = static_cast<int32_t>(incoming.read_pos - incoming.audio_start);
     }
 
+    void SaveAudioSource(const WaveAudioSource* source, std::ofstream& fs) {
+        for (uint8_t const * const cue_pos : source->cue_starts) {
+            fs << "cues {\n";
+            fs << "  pos: " << static_cast<int32_t>(cue_pos - source->audio_start) << "\n";
+            fs << "}\n";
+        }
+    }
+
+    void Mixer::Save(const char* file_path, std::unique_ptr<WaveAudioSource>& playing,
+        std::unique_ptr<WaveAudioSource>& incoming) {
+        // TOOD: Switch to protobuf?
+        std::ofstream fs(file_path);
+        fs << "Playing: " << playing->file_name.c_str() << "\n";
+        SaveAudioSource(playing.get(), fs);
+        fs << "Incoming: " << incoming->file_name.c_str() << "\n";
+        SaveAudioSource(incoming.get(), fs);
+        fs.close();
+    }
+
     void PCMOutputWriter::WriteLeft(const float left_) {
         source->Write(left_);
     }
@@ -214,7 +226,7 @@ namespace MixScript
         const uint32_t padding = 4;
         WaveAudioBuffer* wav_buffer = new WaveAudioBuffer(new uint8_t[render_size + padding], static_cast<uint32_t>(render_size));
         uint8_t* const audio_start = &wav_buffer->samples[0];
-        WaveAudioSource* output_source = new WaveAudioSource(playing->format, wav_buffer, audio_start,
+        WaveAudioSource* output_source = new WaveAudioSource("", playing->format, wav_buffer, audio_start,
             audio_start + render_size, {});
 
         PCMOutputWriter output_writer = { output_source };
@@ -226,7 +238,7 @@ namespace MixScript
         return output_source;
     }
 
-    WaveAudioSource* ParseWaveFile(WaveAudioBuffer* buffer) {
+    WaveAudioSource* ParseWaveFile(const char* file_path, WaveAudioBuffer* buffer) {
         WaveAudioFormat format;
         uint8_t* read_pos = buffer->samples;
         uint8_t* eof_pos = buffer->samples + buffer->file_size;
@@ -300,7 +312,7 @@ namespace MixScript
             read_pos += chunk_size;
         }
 
-        return new WaveAudioSource(format, buffer, audio_pos, audio_pos + data_chunk_size, cues);
+        return new WaveAudioSource(file_path, format, buffer, audio_pos, audio_pos + data_chunk_size, cues);
     }
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path) {
@@ -318,7 +330,7 @@ namespace MixScript
         }
 
         WaveAudioBuffer* wav_buffer = new WaveAudioBuffer(large_file_buffer, static_cast<uint32_t>(bytes_read));
-        return std::unique_ptr<WaveAudioSource>(ParseWaveFile(wav_buffer));
+        return std::unique_ptr<WaveAudioSource>(ParseWaveFile(file_path, wav_buffer));
     }
 
     std::vector<uint8_t> ToByteBuffer(const std::unique_ptr<WaveAudioSource>& source) {
@@ -383,8 +395,7 @@ namespace MixScript
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source) {
         HANDLE file = CreateFile(file_path, GENERIC_WRITE, FILE_SHARE_WRITE, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL,
             nullptr);
-        if (file != INVALID_HANDLE_VALUE)
-        {            
+        if (file != INVALID_HANDLE_VALUE) {            
             DWORD bytes_written = 0;
             std::vector<uint8_t> file_buffer(std::move(ToByteBuffer(source)));
             const DWORD byte_count = (DWORD)file_buffer.size();

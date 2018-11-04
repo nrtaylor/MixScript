@@ -79,15 +79,11 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         return;
     }
 
-    //const int channels = bufferToFill.buffer->getNumChannels();
-    //int samples_remaining = bufferToFill.numSamples;
-    //int sample_offset = bufferToFill.startSample;
-
-    uint32_t cue_pos = queued_cue.load();
+    int32_t cue_pos = queued_cue.load();
     if (cue_pos != 0) {
         queued_cue.compare_exchange_strong(cue_pos, 0); // TODO: don't block on audio thread
         if (cue_pos != 0) {
-            MixScript::ResetToCue(track_playing, cue_pos);
+            MixScript::ResetToCue(track_playing, static_cast<uint32_t>(cue_pos > 0 ? cue_pos : 0));
         }
     }
 
@@ -106,6 +102,10 @@ void MainComponent::releaseResources()
     // For more details, see the help for AudioProcessor::releaseResources()
 }
 
+enum TrackKeys : int {
+    Track_Home = 65572,
+};
+
 bool MainComponent::keyPressed(const KeyPress &key)
 {
     const int key_code = key.getKeyCode();
@@ -113,14 +113,29 @@ bool MainComponent::keyPressed(const KeyPress &key)
         queued_cue = key_code - (int)'0';
         return true;
     }
-    if (key_code == (int)'R') {
+    else if (key_code == (int)'R') {
         ExportRender();
     }
-    if (key_code == (int)' ') {
+    else if (key_code == (int)' ') {
         const bool set_playback_paused = !playback_paused.load();
         playback_paused = set_playback_paused;
     }
+    else if (key_code == Track_Home) {
+        queued_cue = -1;
+    }
     return false;
+}
+
+void MainComponent::SaveProject() {
+    const bool paused_state = playback_paused.load();
+    playback_paused = true;
+    FileChooser chooser("Select Output File", juce::File::getCurrentWorkingDirectory(), "*.mix");
+    if (chooser.browseForFileToOpen()) {
+        const juce::File& file = chooser.getResult().withFileExtension(".mix");
+        MixScript::Mixer mixer;
+        mixer.Save(file.getFullPathName().toRawUTF8(), track_playing, track_incoming);
+    }
+    playback_paused = paused_state;
 }
 
 void MainComponent::ExportRender() {
@@ -160,8 +175,12 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
 void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) {
     switch (menuItemID)
     {
+    case 1:
+        SaveProject();
+        break;
     case 2:
         ExportRender();
+        break;
     default:
         break;
     }
@@ -182,18 +201,28 @@ void MainComponent::paint (Graphics& g)
     Rectangle<int> audio_file = bounds;
     Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
     audio_file_form.reduce(12, 12);
+    Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
     g.setColour(Colour::fromRGB(0, 0, 0x88));
     g.drawRect(audio_file_form);
     audio_file_form.reduce(1,1);
 
+    g.setFont(10);
     if (track_playing) {
         uint8_t* const audio_start = track_playing->audio_start;
         const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
+        int cue_id = 1;
         for (const uint8_t* cue_pos : track_playing->cue_starts) {
             const float ratio = (cue_pos - audio_start) * inv_duration;
             const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
             g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
+            g.drawText(juce::String::formatted("%i", cue_id),
+                pixel_pos - 6,
+                markers.getPosition().y + 1,
+                12,
+                10,
+                juce::Justification::centred);
+            ++cue_id;
         }
         g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
         const float play_pos_ratio = track_playing->last_read_pos * inv_duration;

@@ -18,6 +18,7 @@ namespace MixScript
 
     struct WaveAudioSource {
         WaveAudioFormat format;
+        std::string file_name;
         std::unique_ptr<WaveAudioBuffer> buffer;        
         uint8_t* const audio_start;
         uint8_t* const audio_end;
@@ -35,8 +36,8 @@ namespace MixScript
 
         ~WaveAudioSource();
 
-        WaveAudioSource(const WaveAudioFormat& format_, WaveAudioBuffer* buffer_, uint8_t* const audio_start_pos_,
-            uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
+        WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
+            uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
     };
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
@@ -68,10 +69,12 @@ namespace MixScript
 
     WaveAudioSource* Render(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
 
-    struct Mixer {
+    class Mixer {
+    public:
         template<class T>
         void Mix(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
             T& output_writer, int samples_to_read);
+        void Save(const char* file_path, std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
     };
 
     template void Mixer::Mix<FloatOutputWriter>(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
