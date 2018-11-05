@@ -33,6 +33,7 @@ public:
     void releaseResources() override;
 
     bool keyPressed(const KeyPress & key) override;
+    bool keyStateChanged(bool isKeyDown) override;
 
     StringArray getMenuBarNames() override;
     PopupMenu getMenuForIndex(int topLevelMenuIndex, const String& menuName) override;
@@ -50,6 +51,7 @@ private:
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;
+    std::atomic_bool modifier_mono;
 
     MenuBarComponent menuBar;
 

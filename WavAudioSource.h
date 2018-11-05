@@ -71,10 +71,13 @@ namespace MixScript
 
     class Mixer {
     public:
+        Mixer();
+
         template<class T>
         void Mix(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
             T& output_writer, int samples_to_read);
         void Save(const char* file_path, std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
+        std::atomic_bool modifier_mono;
     };
 
     template void Mixer::Mix<FloatOutputWriter>(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,

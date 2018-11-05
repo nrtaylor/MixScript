@@ -91,6 +91,7 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
         bufferToFill.buffer->getWritePointer(1) };
 
     MixScript::Mixer mixer;
+    mixer.modifier_mono = modifier_mono.load(); // TODO: make mixer member
     mixer.Mix(track_playing, track_incoming, output_writer, bufferToFill.numSamples);
 }
 
@@ -120,9 +121,23 @@ bool MainComponent::keyPressed(const KeyPress &key)
         const bool set_playback_paused = !playback_paused.load();
         playback_paused = set_playback_paused;
     }
-    else if (key_code == Track_Home) {
+    else if (key_code == KeyPress::homeKey) {
         queued_cue = -1;
     }
+    else if (key_code == 'M' && key.getModifiers().isShiftDown()) {
+        modifier_mono = true;
+    }
+    return false;
+}
+
+bool MainComponent::keyStateChanged(bool isKeyDown) {
+    if (!isKeyDown) {
+        if (modifier_mono) {
+            modifier_mono = KeyPress::isKeyCurrentlyDown('M');
+            return true;
+        }
+    }
+
     return false;
 }
 

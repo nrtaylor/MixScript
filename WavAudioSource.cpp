@@ -134,6 +134,10 @@ namespace MixScript
         MFT_EXP,
     };
 
+    Mixer::Mixer() {
+        modifier_mono = false;
+    }
+
     float InterpolateMix(const float param, const float inv_duration, const MixFadeType fade_type) {
         switch (fade_type) {
         case MFT_LINEAR:
@@ -159,6 +163,7 @@ namespace MixScript
         const float inv_cue_size = 1.f / playing.cue_starts.size();
         float left = 0;
         float right = 0;
+        const bool make_mono = modifier_mono;
         for (int32_t i = 0; i < samples_to_read; ++i) {
             playing.TryWrap();
             incoming.TryWrap();
@@ -181,6 +186,10 @@ namespace MixScript
             }
             else if (incoming.Cue(incoming.read_pos, cue_id)) {
                 ResetToCue(playing_, cue_id);
+            }
+            if (make_mono) {
+                left = 0.5f * (left + right);
+                right = left;
             }
             output_writer.WriteLeft(left);
             output_writer.WriteRight(right);
