@@ -57,6 +57,7 @@ private:
 
     void ExportRender();
     void SaveProject();
+    void LoadProject();
 
     void timerCallback() override;
 

@@ -13,6 +13,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <string>
 
 namespace nMath {
     template <typename T>
@@ -211,10 +212,71 @@ namespace MixScript
         // TOOD: Switch to protobuf?
         std::ofstream fs(file_path);
         fs << "Playing: " << playing->file_name.c_str() << "\n";
-        SaveAudioSource(playing.get(), fs);
         fs << "Incoming: " << incoming->file_name.c_str() << "\n";
+        SaveAudioSource(playing.get(), fs);
         SaveAudioSource(incoming.get(), fs);
         fs.close();
+    }
+
+    bool ParseParam(const char* param_name, const std::string& line, std::string& value, const uint32_t indent = 0) {
+        const auto param_name_len = strlen(param_name);
+        if (line.length() <= param_name_len + 3 + indent) {
+            return false;
+        }
+        if (line.compare(indent, param_name_len, param_name) == 0 &&
+            line[param_name_len + indent] == ':') {
+            value = line.substr(param_name_len + indent + 2);
+            return true;
+        }
+        return false;
+    }
+
+    bool ParseStartBlock(const char* param_name, const std::string& line) {
+        const auto param_name_len = strlen(param_name);
+        if (line.length() < param_name_len + 2) {
+            return false;
+        }
+        return line.compare(0, param_name_len, param_name) == 0 &&
+               line[param_name_len + 1] == '{';
+    }
+
+    bool ParseEndBlock(const std::string& line) {
+        return line[0] == '}';
+    }
+
+    void LoadAudioSource(std::ifstream& fs, WaveAudioSource& source) {
+        std::string line;
+        std::getline(fs, line);
+        std::string cue_pos;
+        std::vector<uint8_t*> cue_starts;
+        const uint32_t indent = 2;
+
+        while (ParseStartBlock("cues", line)) {
+            std::getline(fs, line);
+            while (!ParseEndBlock(line)) {
+                ParseParam("pos", line, cue_pos, indent);
+                cue_starts.push_back(source.audio_start + std::stoi(cue_pos));
+                std::getline(fs, line);
+            }
+            std::getline(fs, line);
+        }
+        source.cue_starts = std::move(cue_starts);        
+    }
+
+    void Mixer::Load(const char* file_path) {
+        std::ifstream fs(file_path);
+        std::string file_playing;
+        std::string line;
+        std::getline(fs, line);
+        ParseParam("Playing", line, file_playing);
+        std::unique_ptr<WaveAudioSource> playing_source = LoadWaveFile(file_playing.c_str());
+        std::string file_incoming;
+        std::getline(fs, line);
+        ParseParam("Incoming", line, file_incoming);
+        std::unique_ptr<WaveAudioSource> incoming_source = LoadWaveFile(file_incoming.c_str());
+
+        LoadAudioSource(fs, *playing_source.get());
+        LoadAudioSource(fs, *incoming_source.get());
     }
 
     void PCMOutputWriter::WriteLeft(const float left_) {

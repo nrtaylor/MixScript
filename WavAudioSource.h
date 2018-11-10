@@ -77,6 +77,7 @@ namespace MixScript
         void Mix(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
             T& output_writer, int samples_to_read);
         void Save(const char* file_path, std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
+        void Load(const char* file_path);
         std::atomic_bool modifier_mono;
     };
 

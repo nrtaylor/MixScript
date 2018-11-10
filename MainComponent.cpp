@@ -153,6 +153,18 @@ void MainComponent::SaveProject() {
     playback_paused = paused_state;
 }
 
+void MainComponent::LoadProject() {
+    const bool paused_state = playback_paused.load();
+    playback_paused = true;
+    FileChooser chooser("Select Project File", juce::File::getCurrentWorkingDirectory(), "*.mix");
+    if (chooser.browseForFileToOpen()) {
+        const juce::File& file = chooser.getResult().withFileExtension(".mix");
+        MixScript::Mixer mixer;        
+        mixer.Load(file.getFullPathName().toRawUTF8());
+    }
+    playback_paused = paused_state;
+}
+
 void MainComponent::ExportRender() {
     const bool paused_state = playback_paused.load();
     playback_paused = true;
@@ -181,7 +193,8 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
     {
         // TODO: Commands should be managed by the Application in Main.cpp.
         menu.addItem(1, "Save");
-        menu.addItem(2, "Export");
+        menu.addItem(2, "Load");
+        menu.addItem(3, "Export");
     }
 
     return menu;
@@ -194,6 +207,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         SaveProject();
         break;
     case 2:
+        LoadProject();
+        break;
+    case 3:
         ExportRender();
         break;
     default:
