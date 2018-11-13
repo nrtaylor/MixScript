@@ -12,7 +12,7 @@
 #include <atomic>
 
 namespace MixScript {
-    struct WaveAudioSource;
+    struct Mixer;
 }
 
 //==============================================================================
@@ -46,8 +46,7 @@ public:
 private:
     //==============================================================================
     // Your private member variables go here...
-    std::unique_ptr<MixScript::WaveAudioSource> track_playing;
-    std::unique_ptr<MixScript::WaveAudioSource> track_incoming;
+    std::unique_ptr<MixScript::Mixer> mixer;
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;

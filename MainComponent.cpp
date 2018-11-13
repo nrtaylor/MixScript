@@ -12,26 +12,16 @@
 //==============================================================================
 MainComponent::MainComponent() :
     menuBar(this),
-    track_playing(nullptr),
-    track_incoming(nullptr),
+    mixer(nullptr),
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
     
-    //track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-    //    "C:\\Programming\\MixScript\\mix_script_test_file_seed.wav")));
+    mixer = std::unique_ptr<MixScript::Mixer>(new MixScript::Mixer());
 
-    //track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-    //    "C:\\Programming\\MixScript\\mix_script_test_file_juju.wav")));
-
-    track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-        "C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav")));
-
-    track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-        "C:\\Programming\\MixScript\\mix_script_test_file_martsman.wav")));
-    //MixScript::WriteWaveFile("C:\\Programming\\MixScript\\Output\\mix_script_test_file_juju.wav", track_incoming);
-    //MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
-    //    "C:\\Programming\\MixScript\\one_secondno.wav");
+    // Testing
+    mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
+    mixer->LoadIncomingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_martsman.wav");
 
     // UI
     button_loadfile.setButtonText("...");
@@ -39,11 +29,15 @@ MainComponent::MainComponent() :
         FileChooser chooser("Select Sound File", File::getCurrentWorkingDirectory(), "*.wav;*.aiff");
         if (chooser.browseForFileToOpen())
         {
+            const bool paused_state = playback_paused.load();
+            playback_paused = true;
+
             AudioFormatManager format_manager; format_manager.registerBasicFormats();
             const File& file = chooser.getResult();
-            track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-                file.getFullPathName().toRawUTF8())));
+            mixer->LoadPlayingFromFile(file.getFullPathName().toRawUTF8());
             label_loadfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+
+            playback_paused = paused_state;
         }
     };
     addAndMakeVisible(button_loadfile);
@@ -55,11 +49,15 @@ MainComponent::MainComponent() :
         FileChooser chooser("Select Sound File", File::getCurrentWorkingDirectory(), "*.wav;*.aiff");
         if (chooser.browseForFileToOpen())
         {
+            const bool paused_state = playback_paused.load();
+            playback_paused = true;
+
             AudioFormatManager format_manager; format_manager.registerBasicFormats();
             const File& file = chooser.getResult();
-            track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
-                file.getFullPathName().toRawUTF8())));
+            mixer->LoadIncomingFromFile(file.getFullPathName().toRawUTF8());
             label_outfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+
+            playback_paused = paused_state; // TODO: Scoped pause
         }
     };
     addAndMakeVisible(button_outfile);
@@ -114,16 +112,15 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     if (cue_pos != 0) {
         queued_cue.compare_exchange_strong(cue_pos, 0); // TODO: don't block on audio thread
         if (cue_pos != 0) {
-            MixScript::ResetToCue(track_playing, static_cast<uint32_t>(cue_pos > 0 ? cue_pos : 0));
+            mixer->ResetToCue(static_cast<uint32_t>(cue_pos > 0 ? cue_pos : 0));
         }
     }
 
     MixScript::FloatOutputWriter output_writer = { bufferToFill.buffer->getWritePointer(0),
         bufferToFill.buffer->getWritePointer(1) };
-
-    MixScript::Mixer mixer;
-    mixer.modifier_mono = modifier_mono.load(); // TODO: make mixer member
-    mixer.Mix(track_playing, track_incoming, output_writer, bufferToFill.numSamples);
+    
+    mixer->modifier_mono = modifier_mono.load(); // TODO: make mixer member
+    mixer->Mix(output_writer, bufferToFill.numSamples);
 }
 
 void MainComponent::releaseResources()
@@ -177,9 +174,8 @@ void MainComponent::SaveProject() {
     playback_paused = true;
     FileChooser chooser("Select Output File", juce::File::getCurrentWorkingDirectory(), "*.mix");
     if (chooser.browseForFileToOpen()) {
-        const juce::File& file = chooser.getResult().withFileExtension(".mix");
-        MixScript::Mixer mixer;
-        mixer.Save(file.getFullPathName().toRawUTF8(), track_playing, track_incoming);
+        const juce::File& file = chooser.getResult().withFileExtension(".mix");        
+        mixer->Save(file.getFullPathName().toRawUTF8());
     }
     playback_paused = paused_state;
 }
@@ -190,8 +186,7 @@ void MainComponent::LoadProject() {
     FileChooser chooser("Select Project File", juce::File::getCurrentWorkingDirectory(), "*.mix");
     if (chooser.browseForFileToOpen()) {
         const juce::File& file = chooser.getResult().withFileExtension(".mix");
-        MixScript::Mixer mixer;        
-        mixer.Load(file.getFullPathName().toRawUTF8());
+        mixer->Load(file.getFullPathName().toRawUTF8());
     }
     playback_paused = paused_state;
 }
@@ -202,7 +197,7 @@ void MainComponent::ExportRender() {
     FileChooser chooser("Select Output File", juce::File::getCurrentWorkingDirectory(), "*.wav");
     if (chooser.browseForFileToOpen()) {
         std::unique_ptr<MixScript::WaveAudioSource> output_source = std::unique_ptr<MixScript::WaveAudioSource>(
-            std::move(MixScript::Render(track_playing, track_incoming)));
+            std::move(mixer->Render()));
         const juce::File& file = chooser.getResult().withFileExtension(".wav");
         MixScript::WriteWaveFile(file.getFullPathName().toRawUTF8(), output_source);
     }
@@ -270,7 +265,7 @@ void MainComponent::paint (Graphics& g)
     audio_file_form.reduce(1,1);
 
     g.setFont(10);
-    if (track_playing) {
+    if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
         uint8_t* const audio_start = track_playing->audio_start;
         const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
         int cue_id = 1;

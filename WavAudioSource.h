@@ -67,22 +67,27 @@ namespace MixScript
         void WriteRight(const float right_);
     };
 
-    WaveAudioSource* Render(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
-
     class Mixer {
     public:
         Mixer();
 
         template<class T>
-        void Mix(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
-            T& output_writer, int samples_to_read);
-        void Save(const char* file_path, std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming);
+        void Mix(T& output_writer, int samples_to_read);
+        WaveAudioSource* Render();
+        void Save(const char* file_path);
         void Load(const char* file_path);
+        void LoadPlayingFromFile(const char* file_path);
+        void LoadIncomingFromFile(const char* file_path);
         std::atomic_bool modifier_mono;
+
+        void ResetToCue(const uint32_t cue_id);
+
+        const WaveAudioSource* Playing() const { return playing.get(); }
+    private:
+        std::unique_ptr<WaveAudioSource> playing;
+        std::unique_ptr<WaveAudioSource> incoming;
     };
 
-    template void Mixer::Mix<FloatOutputWriter>(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
-        FloatOutputWriter& output_writer, int samples_to_read);
-    template void Mixer::Mix<PCMOutputWriter>(std::unique_ptr<WaveAudioSource>& playing, std::unique_ptr<WaveAudioSource>& incoming,
-        PCMOutputWriter& output_writer, int samples_to_read);
+    template void Mixer::Mix<FloatOutputWriter>(FloatOutputWriter& output_writer, int samples_to_read);
+    template void Mixer::Mix<PCMOutputWriter>(PCMOutputWriter& output_writer, int samples_to_read);
 }
