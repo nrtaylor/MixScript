@@ -16,12 +16,6 @@ MainComponent::MainComponent() :
     track_incoming(nullptr),
     queued_cue(0)
 {
-    // TODO: MenuBarModel
-
-    // Make sure you set the size of the component after
-    // you add any child components.
-    setSize (1024, 600);
-
     addAndMakeVisible(menuBar);
     
     //track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
@@ -38,6 +32,43 @@ MainComponent::MainComponent() :
     //MixScript::WriteWaveFile("C:\\Programming\\MixScript\\Output\\mix_script_test_file_juju.wav", track_incoming);
     //MixScript::WaveAudioSource* audio_source = MixScript::LoadWaveFile(
     //    "C:\\Programming\\MixScript\\one_secondno.wav");
+
+    // UI
+    button_loadfile.setButtonText("...");
+    button_loadfile.onClick = [this]() {
+        FileChooser chooser("Select Sound File", File::getCurrentWorkingDirectory(), "*.wav;*.aiff");
+        if (chooser.browseForFileToOpen())
+        {
+            AudioFormatManager format_manager; format_manager.registerBasicFormats();
+            const File& file = chooser.getResult();
+            track_playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
+                file.getFullPathName().toRawUTF8())));
+            label_loadfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+        }
+    };
+    addAndMakeVisible(button_loadfile);
+    label_loadfile.setText("[None]", dontSendNotification);
+    addAndMakeVisible(label_loadfile);
+
+    button_outfile.setButtonText("...");
+    button_outfile.onClick = [this]() {
+        FileChooser chooser("Select Sound File", File::getCurrentWorkingDirectory(), "*.wav;*.aiff");
+        if (chooser.browseForFileToOpen())
+        {
+            AudioFormatManager format_manager; format_manager.registerBasicFormats();
+            const File& file = chooser.getResult();
+            track_incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(
+                file.getFullPathName().toRawUTF8())));
+            label_outfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+        }
+    };
+    addAndMakeVisible(button_outfile);
+    label_outfile.setText("[None]", dontSendNotification);
+    addAndMakeVisible(label_outfile);
+
+    // Make sure you set the size of the component after
+    // you add any child components.
+    setSize(1024, 600);
 
     // specify the number of input and output channels that we want to open
     setAudioChannels (0, 2);
@@ -225,7 +256,7 @@ void MainComponent::timerCallback() {
 void MainComponent::paint (Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
+    //g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
 
     // You can add your drawing code here!
     const Rectangle<int> bounds = g.getClipBounds();
@@ -268,4 +299,21 @@ void MainComponent::resized()
     // If you add any child components, this is where you should
     // update their positions.
     menuBar.setBounds(0, 0, getWidth(), 24);
+
+    juce::Rectangle<int> header_buttons = getLocalBounds();    
+    auto row_next = [&header_buttons]() -> decltype(header_buttons)
+    {
+        const int32 height = 24;
+        const int32 padding = 2;
+        return header_buttons.removeFromTop(height).reduced(padding);
+    };
+    row_next();
+
+    juce::Rectangle<int> row_load = row_next();
+    button_loadfile.setBounds(row_load.removeFromLeft(36));
+    label_loadfile.setBounds(row_load.removeFromLeft(350));
+
+    juce::Rectangle<int> row_out = row_next();
+    button_outfile.setBounds(row_out.removeFromLeft(36));
+    label_outfile.setBounds(row_out.removeFromLeft(350));
 }

@@ -53,6 +53,12 @@ private:
     std::atomic_bool playback_paused;
     std::atomic_bool modifier_mono;
 
+    // UI
+    TextButton button_loadfile;
+    Label label_loadfile;
+    TextButton button_outfile;
+    Label label_outfile;
+
     MenuBarComponent menuBar;
 
     void ExportRender();
