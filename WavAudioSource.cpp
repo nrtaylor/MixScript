@@ -141,6 +141,7 @@ namespace MixScript
 
     void Mixer::LoadPlayingFromFile(const char* file_path) {
         playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
+        playing->gain_control.starting_state.gain = 1.f;
         if (incoming != nullptr) {
             MixScript::ResetToCue(incoming, 0);
         }
@@ -148,6 +149,7 @@ namespace MixScript
 
     void Mixer::LoadIncomingFromFile(const char* file_path) {
         incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
+        incoming->gain_control.starting_state.gain = 0.f;
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
@@ -164,6 +166,12 @@ namespace MixScript
         case MFT_EXP:
             return expf(param * inv_duration)/M_E;
         }
+    }
+
+    template<typename Params>
+    float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) {
+        position;
+        return starting_state.Apply(sample);
     }
 
     template<class T>

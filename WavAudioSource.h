@@ -16,6 +16,28 @@ namespace MixScript
         uint32_t bit_rate;
     };
 
+    struct GainParams {
+        float gain;
+
+        float Apply(const float sample) const {
+            return sample * gain;
+        }
+    };
+
+    template<typename Params>
+    struct Movement {
+        Params params;
+        uint8_t* cue_pos;
+    };
+
+    template<typename Params>
+    struct MixerControl {
+        Params starting_state;
+        std::vector<Movement<Params> > movements;
+
+        float Apply(uint8_t const * const position, const float sample);
+    };
+
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
@@ -23,6 +45,7 @@ namespace MixScript
         uint8_t* const audio_start;
         uint8_t* const audio_end;
         std::vector<uint8_t*> cue_starts;
+        MixerControl<GainParams> gain_control;
         uint32_t mix_duration;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
@@ -67,6 +90,11 @@ namespace MixScript
         void WriteRight(const float right_);
     };
 
+    //Select Control[Gain | Low | Mid | High...]
+    //Select Cue[1..9]
+    //Select Track[O | I]
+    //Set Focus on Slider
+    //Optional : Set interpolation mode
     class Mixer {
     public:
         Mixer();
@@ -83,6 +111,7 @@ namespace MixScript
         void ResetToCue(const uint32_t cue_id);
 
         const WaveAudioSource* Playing() const { return playing.get(); }
+        const WaveAudioSource* Incoming() const { return incoming.get(); }
     private:
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

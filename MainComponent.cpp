@@ -35,6 +35,7 @@ MainComponent::MainComponent() :
             AudioFormatManager format_manager; format_manager.registerBasicFormats();
             const File& file = chooser.getResult();
             mixer->LoadPlayingFromFile(file.getFullPathName().toRawUTF8());
+            // TODO: monitor from project
             label_loadfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
 
             playback_paused = paused_state;
@@ -66,6 +67,7 @@ MainComponent::MainComponent() :
 
     // Make sure you set the size of the component after
     // you add any child components.
+    getLookAndFeel().setColour(ResizableWindow::backgroundColourId, Colour(0xAF, 0xAF, 0xAF));
     setSize(1024, 600);
 
     // specify the number of input and output channels that we want to open
@@ -104,16 +106,16 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     // (to prevent the output of random noise)
     bufferToFill.clearActiveBufferRegion();
 
-    if (playback_paused.load()) {
-        return;
-    }
-
     int32_t cue_pos = queued_cue.load();
     if (cue_pos != 0) {
         queued_cue.compare_exchange_strong(cue_pos, 0); // TODO: don't block on audio thread
         if (cue_pos != 0) {
             mixer->ResetToCue(static_cast<uint32_t>(cue_pos > 0 ? cue_pos : 0));
         }
+    }
+
+    if (playback_paused.load()) {
+        return;
     }
 
     MixScript::FloatOutputWriter output_writer = { bufferToFill.buffer->getWritePointer(0),
@@ -130,10 +132,6 @@ void MainComponent::releaseResources()
 
     // For more details, see the help for AudioProcessor::releaseResources()
 }
-
-enum TrackKeys : int {
-    Track_Home = 65572,
-};
 
 bool MainComponent::keyPressed(const KeyPress &key)
 {
@@ -247,45 +245,83 @@ void MainComponent::timerCallback() {
     repaint();
 }
 
-//==============================================================================
-void MainComponent::paint (Graphics& g)
-{
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    //g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
-
-    // You can add your drawing code here!
-    const Rectangle<int> bounds = g.getClipBounds();
-    Rectangle<int> audio_file = bounds;
-    Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
+void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source) {
+    Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
     Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
     g.setColour(Colour::fromRGB(0, 0, 0x88));
     g.drawRect(audio_file_form);
-    audio_file_form.reduce(1,1);
+    audio_file_form.reduce(1, 1);
 
     g.setFont(10);
-    if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        uint8_t* const audio_start = track_playing->audio_start;
-        const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
-        int cue_id = 1;
-        for (const uint8_t* cue_pos : track_playing->cue_starts) {
-            const float ratio = (cue_pos - audio_start) * inv_duration;
-            const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
-            g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
-            g.drawText(juce::String::formatted("%i", cue_id),
-                pixel_pos - 6,
-                markers.getPosition().y + 1,
-                12,
-                10,
-                juce::Justification::centred);
-            ++cue_id;
-        }
-        g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
-        const float play_pos_ratio = track_playing->last_read_pos * inv_duration;
-        const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
-        g.drawLine(play_pos, audio_file_form.getBottom(), play_pos, audio_file_form.getTopLeft().y);
+    uint8_t* const audio_start = source->audio_start;
+    const float inv_duration = 1.f / (float)(source->audio_end - audio_start);
+    int cue_id = 1;
+    for (const uint8_t* cue_pos : source->cue_starts) {
+        const float ratio = (cue_pos - audio_start) * inv_duration;
+        const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+        g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
+        g.drawText(juce::String::formatted("%i", cue_id),
+            pixel_pos - 6,
+            markers.getPosition().y + 1,
+            12,
+            10,
+            juce::Justification::centred);
+        ++cue_id;
     }
+    g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
+    const float play_pos_ratio = source->last_read_pos * inv_duration;
+    const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+    g.drawLine(play_pos, audio_file_form.getBottom(), play_pos, audio_file_form.getTopLeft().y);
+}
+
+//==============================================================================
+void MainComponent::paint (Graphics& g)
+{
+    // (Our component is opaque, so we must completely fill the background with a solid colour)
+    g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
+
+    // You can add your drawing code here!
+    const Rectangle<int> bounds = g.getClipBounds();
+    Rectangle<int> audio_file = bounds;
+    //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
+    if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming);
+    }
+    audio_file.removeFromBottom(12);
+    if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing);
+    }
+    //audio_file_form.reduce(12, 12);
+    //Rectangle<int> markers = audio_file_form.removeFromBottom(12);
+
+    //g.setColour(Colour::fromRGB(0, 0, 0x88));
+    //g.drawRect(audio_file_form);
+    //audio_file_form.reduce(1,1);
+
+    //g.setFont(10);
+    //if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
+    //    uint8_t* const audio_start = track_playing->audio_start;
+    //    const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
+    //    int cue_id = 1;
+    //    for (const uint8_t* cue_pos : track_playing->cue_starts) {
+    //        const float ratio = (cue_pos - audio_start) * inv_duration;
+    //        const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+    //        g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
+    //        g.drawText(juce::String::formatted("%i", cue_id),
+    //            pixel_pos - 6,
+    //            markers.getPosition().y + 1,
+    //            12,
+    //            10,
+    //            juce::Justification::centred);
+    //        ++cue_id;
+    //    }
+    //    g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
+    //    const float play_pos_ratio = track_playing->last_read_pos * inv_duration;
+    //    const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+    //    g.drawLine(play_pos, audio_file_form.getBottom(), play_pos, audio_file_form.getTopLeft().y);
+    //}
 }
 
 void MainComponent::resized()
