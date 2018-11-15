@@ -170,8 +170,33 @@ namespace MixScript
 
     template<typename Params>
     float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) {
-        position;
+        if (movements.empty()) {
+            return starting_state.Apply(sample);
+        }
+        int interval = 0;
+        for (const Movement<Params>& movement : movements) {
+            if (position < movement.cue_pos) {                
+                break;
+            }
+            ++interval;
+        }
+        if (interval > 0) {
+            return movements[interval - 1].params.Apply(sample);
+        }
         return starting_state.Apply(sample);
+
+        // TODO: Interpolate
+        //if (interval >= movements.size()) {
+        //    return movements.back().params.Apply(sample);
+        //}
+        //if (interval == 0) {
+        //    const float base_val = movements[i].params.Apply(sample) - starting_state.Apply(sample);
+        //    // TODO: Starting state needs pos
+        //    // TODO: Refactor flow
+        //    const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front) / playing_.format.channels;
+        //    const float inv_duration = 
+        //    return base_val + InterpolateMix(base_val, , MFT_LINEAR);
+        //}
     }
 
     template<class T>
@@ -199,6 +224,7 @@ namespace MixScript
                 const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front)/playing_.format.channels;
                 // Continuous Mode
                 //const float gain = InterpolateMix(delta, inv_duration, MFT_EXP);
+                //incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
                 const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
                 left = playing_.Read() + incoming_.Read() * gain;
                 right = playing_.Read() + incoming_.Read() * gain;
