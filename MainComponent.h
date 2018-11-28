@@ -12,6 +12,7 @@
 #include <atomic>
 
 namespace MixScript {
+    struct WavePeaks;
     struct Mixer;
 }
 
@@ -47,6 +48,9 @@ private:
     //==============================================================================
     // Your private member variables go here...
     std::unique_ptr<MixScript::Mixer> mixer;
+    // TODO: Merge into component
+    std::unique_ptr<MixScript::WavePeaks> peaks_playing;
+    std::unique_ptr<MixScript::WavePeaks> peaks_incoming;
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;

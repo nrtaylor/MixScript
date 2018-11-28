@@ -13,11 +13,15 @@
 MainComponent::MainComponent() :
     menuBar(this),
     mixer(nullptr),
+    peaks_playing(nullptr),
+    peaks_incoming(nullptr),
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
     
     mixer = std::unique_ptr<MixScript::Mixer>(new MixScript::Mixer());
+    peaks_playing = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
+    peaks_incoming = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
 
     // Testing
     mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
@@ -245,7 +249,8 @@ void MainComponent::timerCallback() {
     repaint();
 }
 
-void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source) {
+void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
+                      MixScript::WavePeaks* peaks) {
     Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
     Rectangle<int> markers = audio_file_form.removeFromBottom(12);
@@ -253,6 +258,24 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
     g.setColour(Colour::fromRGB(0, 0, 0x88));
     g.drawRect(audio_file_form);
     audio_file_form.reduce(1, 1);
+
+    if (peaks != nullptr) {
+        const uint32 wave_width = audio_file_form.getWidth();
+        const uint32 wave_height = audio_file_form.getHeight();
+        if (peaks->peaks.size() != wave_width) {
+            MixScript::ComputeWavePeaks(*source, wave_width, *peaks);
+        }
+
+        g.setColour(Colour::fromRGB(0x77, 0x77, 0xAA));
+        int x = audio_file_form.getPosition().x;
+        int y = audio_file_form.getPosition().y;
+        for (const MixScript::WavePeaks::WavePeak& peak : peaks->peaks) {            
+            const int line_height = wave_height * (peak.max - peak.min) / 2.f;
+            g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
+        }
+
+        g.setColour(Colour::fromRGB(0, 0, 0x88));
+    }
 
     g.setFont(10);
     uint8_t* const audio_start = source->audio_start;
@@ -287,41 +310,12 @@ void MainComponent::paint (Graphics& g)
     Rectangle<int> audio_file = bounds;
     //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming);
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get());
     }
     audio_file.removeFromBottom(12);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing);
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get());
     }
-    //audio_file_form.reduce(12, 12);
-    //Rectangle<int> markers = audio_file_form.removeFromBottom(12);
-
-    //g.setColour(Colour::fromRGB(0, 0, 0x88));
-    //g.drawRect(audio_file_form);
-    //audio_file_form.reduce(1,1);
-
-    //g.setFont(10);
-    //if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-    //    uint8_t* const audio_start = track_playing->audio_start;
-    //    const float inv_duration = 1.f / (float)(track_playing->audio_end - audio_start);
-    //    int cue_id = 1;
-    //    for (const uint8_t* cue_pos : track_playing->cue_starts) {
-    //        const float ratio = (cue_pos - audio_start) * inv_duration;
-    //        const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
-    //        g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
-    //        g.drawText(juce::String::formatted("%i", cue_id),
-    //            pixel_pos - 6,
-    //            markers.getPosition().y + 1,
-    //            12,
-    //            10,
-    //            juce::Justification::centred);
-    //        ++cue_id;
-    //    }
-    //    g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
-    //    const float play_pos_ratio = track_playing->last_read_pos * inv_duration;
-    //    const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
-    //    g.drawLine(play_pos, audio_file_form.getBottom(), play_pos, audio_file_form.getTopLeft().y);
-    //}
 }
 
 void MainComponent::resized()

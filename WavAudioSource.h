@@ -38,6 +38,14 @@ namespace MixScript
         float Apply(uint8_t const * const position, const float sample);
     };
 
+    struct WavePeaks {
+        struct WavePeak {
+            float min;
+            float max;
+        };
+        std::vector<WavePeak> peaks;
+    };
+
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
@@ -53,6 +61,7 @@ namespace MixScript
         std::atomic_int32_t last_read_pos;
         uint8_t* write_pos;
         float Read();
+        float Read(const uint8_t** read_pos_) const;
         void Write(const float value);
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
         void TryWrap();
@@ -62,6 +71,8 @@ namespace MixScript
         WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
             uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
     };
+
+    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks);
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);

@@ -44,6 +44,13 @@ namespace MixScript
         return next * kSampleRatio;
     }
 
+    float WaveAudioSource::Read(const uint8_t** read_pos_) const {
+        const int32_t next = (int32_t)((*(const uint32_t*)(*read_pos_)) << 16);
+        (*read_pos_) += 2;
+
+        return next * kSampleRatio;
+    }
+
     void WaveAudioSource::Write(const float value) {
         const float sample_max = (float)((1 << (format.bit_rate - 1)) - 1);        
         const int32_t next = (uint32_t)roundf(value * sample_max);
@@ -166,6 +173,8 @@ namespace MixScript
         case MFT_EXP:
             return expf(param * inv_duration)/M_E;
         }
+
+        return param;
     }
 
     template<typename Params>
@@ -527,5 +536,31 @@ namespace MixScript
         }
 
         return false;
+    }
+
+    uint32_t ByteRate(const WaveAudioFormat& format) {
+        return format.bit_rate / 8;
+    }
+
+    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks) {
+        const uint32_t delta = source.audio_end - source.audio_start;
+        const uint32_t sample_count = delta / ByteRate(source.format);
+        const float samples_per_pixel = sample_count / (float) pixel_width;
+
+        peaks.peaks.resize(pixel_width);
+        const uint8_t* read_pos = source.audio_start;
+        for (WavePeaks::WavePeak& peak : peaks.peaks) {
+            peak.max = 0.f;
+            peak.min = 0.f;
+            for (int i = 0; i < samples_per_pixel; ++i) {
+                const float sample = source.Read(&read_pos);
+                if (sample > peak.max) {
+                    peak.max = sample;
+                }
+                else if (sample < peak.min) {
+                    peak.min = sample;
+                }
+            }
+        }
     }
 }
