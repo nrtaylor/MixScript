@@ -101,6 +101,18 @@ namespace MixScript
         void WriteRight(const float right_);
     };
 
+    struct MixSync {
+        int playing_cue_id = 1;
+        int incoming_cue_id = 1;
+
+        int Delta() const {
+            return incoming_cue_id - playing_cue_id;
+        }
+        int Reverse() const {
+            return playing_cue_id - incoming_cue_id;
+        }
+    };
+
     //Select Control[Gain | Low | Mid | High...]
     //Select Cue[1..9]
     //Select Track[O | I]
@@ -118,11 +130,15 @@ namespace MixScript
         void LoadPlayingFromFile(const char* file_path);
         void LoadIncomingFromFile(const char* file_path);
         std::atomic_bool modifier_mono;
+        MixSync mix_sync;
+        int selected_track;
 
         void ResetToCue(const uint32_t cue_id);
 
         const WaveAudioSource* Playing() const { return playing.get(); }
         const WaveAudioSource* Incoming() const { return incoming.get(); }
+
+        void SetMixSync(int cue_id);
     private:
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

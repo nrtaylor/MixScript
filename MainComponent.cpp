@@ -141,8 +141,21 @@ bool MainComponent::keyPressed(const KeyPress &key)
 {
     const int key_code = key.getKeyCode();
     if (key_code >= (int)'0' && key_code <= (int)'9') {
-        queued_cue = key_code - (int)'0';
+        int cue_id = key_code - (int)'0';
+        if (playback_paused &&
+            key.getModifiers().isShiftDown()) {
+            mixer->SetMixSync(cue_id);
+        }
+        else {
+            queued_cue = cue_id;
+        }
         return true;
+    }
+    else if (key_code == KeyPress::downKey) {
+        mixer->selected_track = ++mixer->selected_track % 2;
+    }
+    else if (key_code == KeyPress::upKey) {
+        mixer->selected_track = ++mixer->selected_track % 2;
     }
     else if (key_code == (int)'R') {
         ExportRender();
@@ -250,12 +263,14 @@ void MainComponent::timerCallback() {
 }
 
 void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
-                      MixScript::WavePeaks* peaks) {
+                      MixScript::WavePeaks* peaks, bool selected, int sync_cue_id) {
     Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
     Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
-    g.setColour(Colour::fromRGB(0, 0, 0x88));
+    const Colour colour = selected ? Colour::fromRGB(0, 0, 0x88) : Colour::fromRGB(0x33, 0x33, 0x66);
+
+    g.setColour(colour);
     g.drawRect(audio_file_form);
     audio_file_form.reduce(1, 1);
 
@@ -274,7 +289,7 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
         }
 
-        g.setColour(Colour::fromRGB(0, 0, 0x88));
+        g.setColour(colour);
     }
 
     g.setFont(10);
@@ -285,7 +300,8 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
         const float ratio = (cue_pos - audio_start) * inv_duration;
         const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
         g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
-        g.drawText(juce::String::formatted("%i", cue_id),
+        const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
+        g.drawText(cue_label,
             pixel_pos - 6,
             markers.getPosition().y + 1,
             12,
@@ -310,11 +326,13 @@ void MainComponent::paint (Graphics& g)
     Rectangle<int> audio_file = bounds;
     //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get());
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get(), mixer->selected_track == 1,
+            mixer->mix_sync.incoming_cue_id);
     }
     audio_file.removeFromBottom(12);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get());
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get(), mixer->selected_track == 0,
+            mixer->mix_sync.playing_cue_id);
     }
 }
 

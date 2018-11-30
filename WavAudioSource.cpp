@@ -142,8 +142,8 @@ namespace MixScript
         MFT_EXP,
     };
 
-    Mixer::Mixer() : playing(nullptr), incoming(nullptr) {
-        modifier_mono = false;
+    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0) {
+        modifier_mono = false;        
     }
 
     void Mixer::LoadPlayingFromFile(const char* file_path) {
@@ -160,6 +160,21 @@ namespace MixScript
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
+    }
+
+    void Mixer::SetMixSync(int cue_id) {
+        switch (selected_track)
+        {
+        case 0:
+            mix_sync.playing_cue_id = cue_id;
+            break;
+        case 1:
+            mix_sync.incoming_cue_id = cue_id;
+            break;
+        default:
+            break;
+        }
+        ResetToCue(0);
     }
 
     float InterpolateMix(const float param, const float inv_duration, const MixFadeType fade_type) {
@@ -214,7 +229,7 @@ namespace MixScript
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts.front();
+        const uint8_t* front = playing_.cue_starts[mix_sync.playing_cue_id - 1];
         const float inv_duration = 1.f / playing_.mix_duration;
         const float inv_cue_size = 1.f / playing_.cue_starts.size();
         float left = 0;
@@ -224,7 +239,7 @@ namespace MixScript
             playing_.TryWrap();
             incoming_.TryWrap();
             uint32_t cue_id = 0;
-            bool on_cue = playing_.Cue(playing_.read_pos, cue_id);
+            bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && cue_id >= mix_sync.playing_cue_id;
             if (playing_.read_pos < front) {
                 left = playing_.Read();
                 right = playing_.Read();
@@ -237,12 +252,12 @@ namespace MixScript
                 const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
                 left = playing_.Read() + incoming_.Read() * gain;
                 right = playing_.Read() + incoming_.Read() * gain;
-            }            
+            }
             if (on_cue) {
-                MixScript::ResetToCue(incoming, cue_id);
+                MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));
             }
             else if (incoming_.Cue(incoming_.read_pos, cue_id)) {
-                MixScript::ResetToCue(playing, cue_id);
+                MixScript::ResetToCue(playing, (uint32_t)((int32_t)cue_id + mix_sync.Reverse()));
             }
             if (make_mono) {
                 left = 0.5f * (left + right);
