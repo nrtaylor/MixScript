@@ -287,6 +287,10 @@ namespace MixScript
         std::ofstream fs(file_path);
         fs << "Playing: " << playing->file_name.c_str() << "\n";
         fs << "Incoming: " << incoming->file_name.c_str() << "\n";
+        fs << "mix_sync {\n";
+        fs << "  playing_cue_id: " << mix_sync.playing_cue_id << "\n";
+        fs << "  incoming_cue_id: " << mix_sync.incoming_cue_id << "\n";
+        fs << "}\n";
         SaveAudioSource(playing.get(), fs);
         SaveAudioSource(incoming.get(), fs);
         fs.close();
@@ -294,7 +298,7 @@ namespace MixScript
 
     bool ParseParam(const char* param_name, const std::string& line, std::string& value, const uint32_t indent = 0) {
         const auto param_name_len = strlen(param_name);
-        if (line.length() <= param_name_len + 3 + indent) {
+        if (line.length() < param_name_len + 3 + indent) {
             return false;
         }
         if (line.compare(indent, param_name_len, param_name) == 0 &&
@@ -341,6 +345,8 @@ namespace MixScript
         std::ifstream fs(file_path);
         std::string file_playing;
         std::string line;
+        std::string param;
+
         std::getline(fs, line);
         ParseParam("Playing", line, file_playing);
         LoadPlayingFromFile(file_playing.c_str());
@@ -349,7 +355,19 @@ namespace MixScript
         ParseParam("Incoming", line, file_incoming);
         LoadIncomingFromFile(file_incoming.c_str());
 
-        LoadAudioSource(fs, *playing.get());
+        std::getline(fs, line);
+        ParseStartBlock("mix_sync", line);
+        std::getline(fs, line);
+        ParseParam("playing_cue_id", line, param, 2);
+        mix_sync.playing_cue_id = std::stoi(param);
+        std::getline(fs, line);
+        ParseParam("incoming_cue_id", line, param, 2);
+        mix_sync.incoming_cue_id = std::stoi(param);
+        std::getline(fs, line);
+        ParseEndBlock(line);
+
+        // TODO: Audio Source needs to be scoped. Reading all the cues into playing
+        LoadAudioSource(fs, *playing.get());        
         LoadAudioSource(fs, *incoming.get());
     }
 
