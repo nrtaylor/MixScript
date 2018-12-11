@@ -74,7 +74,8 @@ namespace MixScript
         format(format_),
         buffer(buffer_),
         audio_start(audio_start_pos_),
-        audio_end(audio_end_pos_) {
+        audio_end(audio_end_pos_),
+        selected_marker(-1) {
         read_pos = audio_start_pos_;
         last_read_pos = 0;
         write_pos = audio_start_pos_;
@@ -162,14 +163,28 @@ namespace MixScript
         }
     }
 
-    void Mixer::SetMixSync(int cue_id) {
+    void Mixer::SetSelectedMarker(int cue_id) {
         switch (selected_track)
         {
         case 0:
-            mix_sync.playing_cue_id = cue_id;
+            playing->selected_marker = cue_id;
             break;
         case 1:
-            mix_sync.incoming_cue_id = cue_id;
+            incoming->selected_marker = cue_id;
+            break;
+        default:
+            break;
+        }
+    }
+
+    void Mixer::SetMixSync() {
+        switch (selected_track)
+        {
+        case 0:
+            mix_sync.playing_cue_id = playing->selected_marker;
+            break;
+        case 1:
+            mix_sync.incoming_cue_id = incoming->selected_marker;
             break;
         default:
             break;
@@ -275,11 +290,13 @@ namespace MixScript
     }
 
     void SaveAudioSource(const WaveAudioSource* source, std::ofstream& fs) {
+        fs << "audio_source {\n";
         for (uint8_t const * const cue_pos : source->cue_starts) {
             fs << "cues {\n";
             fs << "  pos: " << static_cast<int32_t>(cue_pos - source->audio_start) << "\n";
             fs << "}\n";
         }
+        fs << "}\n";
     }
 
     void Mixer::Save(const char* file_path) {
@@ -325,6 +342,8 @@ namespace MixScript
     void LoadAudioSource(std::ifstream& fs, WaveAudioSource& source) {
         std::string line;
         std::getline(fs, line);
+        ParseStartBlock("audio_source", line);
+        std::getline(fs, line);
         std::string cue_pos;
         std::vector<uint8_t*> cue_starts;
         const uint32_t indent = 2;
@@ -338,7 +357,8 @@ namespace MixScript
             }
             std::getline(fs, line);
         }
-        source.cue_starts = std::move(cue_starts);        
+        source.cue_starts = std::move(cue_starts);
+        ParseEndBlock(line);
     }
 
     void Mixer::Load(const char* file_path) {

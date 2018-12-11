@@ -144,7 +144,7 @@ bool MainComponent::keyPressed(const KeyPress &key)
         int cue_id = key_code - (int)'0';
         if (playback_paused &&
             key.getModifiers().isShiftDown()) {
-            mixer->SetMixSync(cue_id);
+            mixer->SetSelectedMarker(cue_id);
         }
         else {
             queued_cue = cue_id;
@@ -157,8 +157,10 @@ bool MainComponent::keyPressed(const KeyPress &key)
     else if (key_code == KeyPress::upKey) {
         mixer->selected_track = ++mixer->selected_track % 2;
     }
-    else if (key_code == (int)'R') {
-        ExportRender();
+    else if (key_code == (int)'S') {
+        if (playback_paused && key.getModifiers().isShiftDown()) {
+            mixer->SetMixSync();
+        }        
     }
     else if (key_code == (int)' ') {
         const bool set_playback_paused = !playback_paused.load();
@@ -301,12 +303,11 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
         const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
         g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
-        g.drawText(cue_label,
-            pixel_pos - 6,
-            markers.getPosition().y + 1,
-            12,
-            10,
-            juce::Justification::centred);
+        const Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
+        g.drawText(cue_label, label_rect, juce::Justification::centred);
+        if (source->selected_marker == cue_id) {
+            g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
+        }
         ++cue_id;
     }
     g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));

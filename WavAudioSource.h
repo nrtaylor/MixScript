@@ -55,6 +55,7 @@ namespace MixScript
         std::vector<uint8_t*> cue_starts;
         MixerControl<GainParams> gain_control;
         uint32_t mix_duration;
+        int selected_marker;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
         const uint8_t* read_pos;
@@ -138,7 +139,8 @@ namespace MixScript
         const WaveAudioSource* Playing() const { return playing.get(); }
         const WaveAudioSource* Incoming() const { return incoming.get(); }
 
-        void SetMixSync(int cue_id);
+        void SetSelectedMarker(int cue_id);
+        void SetMixSync();
     private:
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;
