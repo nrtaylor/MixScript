@@ -69,6 +69,13 @@ MainComponent::MainComponent() :
     label_outfile.setText("[None]", dontSendNotification);
     addAndMakeVisible(label_outfile);
 
+    playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
+    addAndMakeVisible(&playing_controls);
+    playing_controls.on_coefficient_changed = [this](const float gain)
+    {
+        mixer.get();
+    };
+
     // Make sure you set the size of the component after
     // you add any child components.
     getLookAndFeel().setColour(ResizableWindow::backgroundColourId, Colour(0xAF, 0xAF, 0xAF));
@@ -135,6 +142,10 @@ void MainComponent::releaseResources()
     // restarted due to a setting change.
 
     // For more details, see the help for AudioProcessor::releaseResources()
+}
+
+void MainComponent::LoadControls() {
+    // TOOD: Get Controls from Mixer
 }
 
 bool MainComponent::keyPressed(const KeyPress &key)

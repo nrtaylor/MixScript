@@ -9,6 +9,7 @@
 #pragma once
 
 #include "../JuceLibraryCode/JuceHeader.h"
+#include "TrackControlsComponent.h"
 #include <atomic>
 
 namespace MixScript {
@@ -62,11 +63,15 @@ private:
     TextButton button_outfile;
     Label label_outfile;
 
+    TrackControlsComponent playing_controls;
+
     MenuBarComponent menuBar;
 
     void ExportRender();
     void SaveProject();
     void LoadProject();
+
+    void LoadControls();
 
     void timerCallback() override;
 
