@@ -27,15 +27,15 @@ namespace MixScript
     template<typename Params>
     struct Movement {
         Params params;
-        uint8_t* cue_pos;
+        const uint8_t* cue_pos;
     };
 
     template<typename Params>
-    struct MixerControl {
-        Params starting_state;
+    struct MixerControl {        
         std::vector<Movement<Params> > movements;
 
         float Apply(uint8_t const * const position, const float sample);
+        void Init(Params&& params, uint8_t const * const position);
     };
 
     struct WavePeaks {

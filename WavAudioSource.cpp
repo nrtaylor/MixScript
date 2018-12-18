@@ -149,7 +149,7 @@ namespace MixScript
 
     void Mixer::LoadPlayingFromFile(const char* file_path) {
         playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        playing->gain_control.starting_state.gain = 1.f;
+        playing->gain_control.Init(GainParams{ 1.f }, playing->audio_start);
         if (incoming != nullptr) {
             MixScript::ResetToCue(incoming, 0);
         }
@@ -157,7 +157,7 @@ namespace MixScript
 
     void Mixer::LoadIncomingFromFile(const char* file_path) {
         incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        incoming->gain_control.starting_state.gain = 0.f;
+        incoming->gain_control.Init(GainParams{ 0.f }, playing->audio_start);
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
@@ -208,34 +208,39 @@ namespace MixScript
     }
 
     template<typename Params>
+    void MixerControl<Params>::Init(Params&& params, uint8_t const * const position) {
+        movements.emplace_back(Movement<Params>{ params, position });
+    }
+
+    template<typename Params>
     float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) {
         if (movements.empty()) {
-            return starting_state.Apply(sample);
+            return sample;
         }
         int interval = 0;
         for (const Movement<Params>& movement : movements) {
-            if (position < movement.cue_pos) {                
+            if (position >= movement.cue_pos) {                
                 break;
             }
             ++interval;
         }
-        if (interval > 0) {
-            return movements[interval - 1].params.Apply(sample);
+        if (interval == 0) {
+            movements.front().params.Apply(sample);
         }
-        return starting_state.Apply(sample);
+        else if (interval >= movements.size()) {
+            return movements.back().params.Apply(sample);
+        }
+        else {
+            const Movement<Params>& start_state = movements[interval - 1];
+            const Movement<Params>& end_state = movements[interval];
 
-        // TODO: Interpolate
-        //if (interval >= movements.size()) {
-        //    return movements.back().params.Apply(sample);
-        //}
-        //if (interval == 0) {
-        //    const float base_val = movements[i].params.Apply(sample) - starting_state.Apply(sample);
-        //    // TODO: Starting state needs pos
-        //    // TODO: Refactor flow
-        //    const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front) / playing_.format.channels;
-        //    const float inv_duration = 
-        //    return base_val + InterpolateMix(base_val, , MFT_LINEAR);
-        //}
+            const float duration = (float)(end_state.cue_pos - start_state.cue_pos);
+
+            const float start_value = start_state.params.Apply(sample);
+            const float end_value = end_state.params.Apply(sample);
+
+            return InterpolateMix(end_value - start_value, 1.f/duration, MFT_LINEAR) + start_value;
+        }
     }
 
     template<class T>
@@ -254,19 +259,21 @@ namespace MixScript
             playing_.TryWrap();
             incoming_.TryWrap();
             uint32_t cue_id = 0;
-            bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && cue_id >= mix_sync.playing_cue_id;
-            if (playing_.read_pos < front) {
-                left = playing_.Read();
-                right = playing_.Read();
-            }
-            else {
-                const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front)/playing_.format.channels;
+            uint8_t const * const playing_read_pos = playing_.read_pos;
+            bool on_cue = playing_.Cue(playing_read_pos, cue_id) && cue_id >= mix_sync.playing_cue_id;
+            left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
+            right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
+            if (playing_.read_pos >= front) {
+                //const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front)/playing_.format.channels;
                 // Continuous Mode
                 //const float gain = InterpolateMix(delta, inv_duration, MFT_EXP);
                 //incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
-                const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
-                left = playing_.Read() + incoming_.Read() * gain;
-                right = playing_.Read() + incoming_.Read() * gain;
+                //const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
+                //left = playing_.Read() + incoming_.Read() * gain;
+                //right = playing_.Read() + incoming_.Read() * gain;
+                uint8_t const * const incoming_read_pos = incoming_.read_pos;
+                left += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
+                right += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
             }
             if (on_cue) {
                 MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));
