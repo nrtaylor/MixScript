@@ -149,7 +149,7 @@ namespace MixScript
 
     void Mixer::LoadPlayingFromFile(const char* file_path) {
         playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        playing->gain_control.Init(GainParams{ 1.f }, playing->audio_start);
+        playing->gain_control.Add(GainParams{ 1.f }, playing->audio_start);
         if (incoming != nullptr) {
             MixScript::ResetToCue(incoming, 0);
         }
@@ -157,24 +157,51 @@ namespace MixScript
 
     void Mixer::LoadIncomingFromFile(const char* file_path) {
         incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        incoming->gain_control.Init(GainParams{ 0.f }, playing->audio_start);
+        incoming->gain_control.Add(GainParams{ 0.f }, playing->audio_start);
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
     }
 
-    void Mixer::SetSelectedMarker(int cue_id) {
-        switch (selected_track)
-        {
-        case 0:
-            playing->selected_marker = cue_id;
-            break;
-        case 1:
-            incoming->selected_marker = cue_id;
-            break;
-        default:
-            break;
+    void Mixer::UpdateGainValue(float gain) {
+        WaveAudioSource& source = Selected();
+        const int cue_id = source.selected_marker;
+        if (cue_id > 0) {
+            uint8_t const * const marker_pos = source.cue_starts[cue_id - 1];
+            int gain_cue_id = 0;
+            bool found = false;
+            for (Movement<GainParams>& movement : source.gain_control.movements) {
+                if (movement.cue_pos == marker_pos) {
+                    movement.params.gain = gain;
+                    found = true;
+                    break;
+                }
+                else if (movement.cue_pos > marker_pos) {
+                    break;
+                }
+                ++gain_cue_id;
+            }
+            if (!found) {
+                if (gain_cue_id >= source.gain_control.movements.size()) {
+                    source.gain_control.Add(GainParams{ gain }, marker_pos);
+                }
+                else {
+                    source.gain_control.movements.insert(source.gain_control.movements.begin() + gain_cue_id,
+                        Movement<GainParams>{ GainParams{ gain }, marker_pos } );
+                }
+            }
         }
+    }
+
+    WaveAudioSource& Mixer::Selected() {
+        if (selected_track == 1) {
+            return *incoming.get();
+        }
+        return *playing.get();
+    }
+
+    void Mixer::SetSelectedMarker(int cue_id) {
+        Selected().selected_marker = cue_id;
     }
 
     void Mixer::SetMixSync() {
@@ -208,21 +235,22 @@ namespace MixScript
     }
 
     template<typename Params>
-    void MixerControl<Params>::Init(Params&& params, uint8_t const * const position) {
+    void MixerControl<Params>::Add(Params&& params, uint8_t const * const position) {
         movements.emplace_back(Movement<Params>{ params, position });
     }
 
     template<typename Params>
-    float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) {
+    float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) const {
         if (movements.empty()) {
             return sample;
         }
-        int interval = 0;
-        for (const Movement<Params>& movement : movements) {
+        int interval = movements.size();        
+        for (auto it = movements.rbegin(); it != movements.rend(); ++it) {
+            const Movement<Params>& movement = *it;
             if (position >= movement.cue_pos) {                
                 break;
             }
-            ++interval;
+            --interval;
         }
         if (interval == 0) {
             movements.front().params.Apply(sample);
@@ -234,12 +262,13 @@ namespace MixScript
             const Movement<Params>& start_state = movements[interval - 1];
             const Movement<Params>& end_state = movements[interval];
 
+            const float t = (float)(position - start_state.cue_pos);
             const float duration = (float)(end_state.cue_pos - start_state.cue_pos);
 
             const float start_value = start_state.params.Apply(sample);
             const float end_value = end_state.params.Apply(sample);
 
-            return InterpolateMix(end_value - start_value, 1.f/duration, MFT_LINEAR) + start_value;
+            return InterpolateMix(end_value - start_value, t/duration, MFT_LINEAR) + start_value;
         }
     }
 

@@ -34,8 +34,8 @@ namespace MixScript
     struct MixerControl {        
         std::vector<Movement<Params> > movements;
 
-        float Apply(uint8_t const * const position, const float sample);
-        void Init(Params&& params, uint8_t const * const position);
+        void Add(Params&& params, uint8_t const * const position);
+        float Apply(uint8_t const * const position, const float sample) const;
     };
 
     struct WavePeaks {
@@ -137,11 +137,14 @@ namespace MixScript
         void ResetToCue(const uint32_t cue_id);
 
         const WaveAudioSource* Playing() const { return playing.get(); }
-        const WaveAudioSource* Incoming() const { return incoming.get(); }
+        const WaveAudioSource* Incoming() const { return incoming.get(); }        
 
         void SetSelectedMarker(int cue_id);
+        void UpdateGainValue(float gain);
         void SetMixSync();
     private:
+        WaveAudioSource& Selected();
+
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;
     };

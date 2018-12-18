@@ -73,7 +73,7 @@ MainComponent::MainComponent() :
     addAndMakeVisible(&playing_controls);
     playing_controls.on_coefficient_changed = [this](const float gain)
     {
-        mixer.get();
+        mixer->UpdateGainValue(gain);
     };
 
     // Make sure you set the size of the component after
