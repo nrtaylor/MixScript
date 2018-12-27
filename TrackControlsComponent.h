@@ -15,4 +15,5 @@ private:
     void HandleValueChanged(const NotificationType notification);
 
     Slider slider_gain;
+    // ComboBox interp
 };

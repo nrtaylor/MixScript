@@ -46,6 +46,15 @@ namespace MixScript
         std::vector<WavePeak> peaks;
     };
 
+    struct AmplitudeAutomation {
+        std::atomic_bool dirty;
+        std::vector<float> values;
+
+        AmplitudeAutomation() {
+            dirty = false;
+        }
+    };
+
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
@@ -65,6 +74,7 @@ namespace MixScript
         float Read(const uint8_t** read_pos_) const;
         void Write(const float value);
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
+        const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
 
         ~WaveAudioSource();
@@ -74,6 +84,7 @@ namespace MixScript
     };
 
     void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks);
+    void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation);
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);
@@ -141,9 +152,11 @@ namespace MixScript
 
         void SetSelectedMarker(int cue_id);
         void UpdateGainValue(float gain);
+        float GainValue() const;
         void SetMixSync();
     private:
         WaveAudioSource& Selected();
+        const WaveAudioSource& Selected() const;
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

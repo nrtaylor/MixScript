@@ -157,10 +157,24 @@ namespace MixScript
 
     void Mixer::LoadIncomingFromFile(const char* file_path) {
         incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        incoming->gain_control.Add(GainParams{ 0.f }, playing->audio_start);
+        incoming->gain_control.Add(GainParams{ 0.f }, incoming->audio_start);
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
+    }
+
+    const uint8_t * WaveAudioSource::SelectedMarkerPos() const {
+        if (selected_marker <= 0) {
+            return audio_start;
+        }
+        return cue_starts[selected_marker - 1];
+    }
+
+    float Mixer::GainValue() const {
+        const WaveAudioSource& source = Selected();
+        const float gain = source.gain_control.Apply(source.SelectedMarkerPos(), 1.f);
+
+        return gain;
     }
 
     void Mixer::UpdateGainValue(float gain) {
@@ -194,6 +208,13 @@ namespace MixScript
     }
 
     WaveAudioSource& Mixer::Selected() {
+        if (selected_track == 1) {
+            return *incoming.get();
+        }
+        return *playing.get();
+    }
+
+    const WaveAudioSource& Mixer::Selected() const {
         if (selected_track == 1) {
             return *incoming.get();
         }
@@ -629,6 +650,19 @@ namespace MixScript
 
     uint32_t ByteRate(const WaveAudioFormat& format) {
         return format.bit_rate / 8;
+    }
+
+    void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation) {
+        const uint32_t delta = source.audio_end - source.audio_start;
+        //const uint32_t byte_rate = ByteRate(source.format) * source.format.channels;
+        const uint32_t bytes_per_pixel = (uint32_t)(delta / (float)pixel_width);
+
+        automation.values.resize(pixel_width);
+        const uint8_t* read_pos = source.audio_start;
+        for (float& value : automation.values) {
+            value = source.gain_control.Apply(read_pos, 1.f);
+            read_pos += bytes_per_pixel;
+        }
     }
 
     void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks) {

@@ -14,6 +14,7 @@
 
 namespace MixScript {
     struct WavePeaks;
+    struct AmplitudeAutomation;
     struct Mixer;
 }
 
@@ -52,6 +53,8 @@ private:
     // TODO: Merge into component
     std::unique_ptr<MixScript::WavePeaks> peaks_playing;
     std::unique_ptr<MixScript::WavePeaks> peaks_incoming;
+
+    std::unique_ptr<MixScript::AmplitudeAutomation> automation_playing;
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;

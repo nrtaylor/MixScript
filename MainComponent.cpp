@@ -14,6 +14,7 @@ MainComponent::MainComponent() :
     menuBar(this),
     mixer(nullptr),
     peaks_playing(nullptr),
+    automation_playing(nullptr),
     peaks_incoming(nullptr),
     queued_cue(0)
 {
@@ -22,6 +23,7 @@ MainComponent::MainComponent() :
     mixer = std::unique_ptr<MixScript::Mixer>(new MixScript::Mixer());
     peaks_playing = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
     peaks_incoming = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
+    automation_playing = std::unique_ptr<MixScript::AmplitudeAutomation>(new MixScript::AmplitudeAutomation());
 
     // Testing
     mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
@@ -74,6 +76,7 @@ MainComponent::MainComponent() :
     playing_controls.on_coefficient_changed = [this](const float gain)
     {
         mixer->UpdateGainValue(gain);
+        automation_playing->dirty = true;
     };
 
     // Make sure you set the size of the component after
@@ -146,27 +149,33 @@ void MainComponent::releaseResources()
 
 void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
+    const float gain_amount = mixer->GainValue();
+    playing_controls.LoadControls(gain_amount, juce::NotificationType::dontSendNotification);
 }
 
 bool MainComponent::keyPressed(const KeyPress &key)
 {
     const int key_code = key.getKeyCode();
+    bool refresh_controls = false;
     if (key_code >= (int)'0' && key_code <= (int)'9') {
         int cue_id = key_code - (int)'0';
         if (playback_paused &&
             key.getModifiers().isShiftDown()) {
             mixer->SetSelectedMarker(cue_id);
+            refresh_controls = true;
         }
         else {
             queued_cue = cue_id;
         }
-        return true;
+        //return true; // TODO: Handle/not handled
     }
     else if (key_code == KeyPress::downKey) {
         mixer->selected_track = ++mixer->selected_track % 2;
+        refresh_controls = true;
     }
     else if (key_code == KeyPress::upKey) {
         mixer->selected_track = ++mixer->selected_track % 2;
+        refresh_controls = true;
     }
     else if (key_code == (int)'S') {
         if (playback_paused && key.getModifiers().isShiftDown()) {
@@ -182,6 +191,9 @@ bool MainComponent::keyPressed(const KeyPress &key)
     }
     else if (key_code == 'M' && key.getModifiers().isShiftDown()) {
         modifier_mono = true;
+    }
+    if (refresh_controls) {
+        LoadControls();
     }
     return false;
 }
@@ -276,7 +288,8 @@ void MainComponent::timerCallback() {
 }
 
 void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
-                      MixScript::WavePeaks* peaks, bool selected, int sync_cue_id) {
+                      MixScript::WavePeaks* peaks, MixScript::AmplitudeAutomation* automation, bool selected,
+                      int sync_cue_id) {
     Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
     Rectangle<int> markers = audio_file_form.removeFromBottom(12);
@@ -300,6 +313,25 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
         for (const MixScript::WavePeaks::WavePeak& peak : peaks->peaks) {            
             const int line_height = wave_height * (peak.max - peak.min) / 2.f;
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
+        }
+
+        g.setColour(colour);
+    }
+
+    if (automation != nullptr) {
+        const uint32 wave_width = audio_file_form.getWidth();
+        const uint32 wave_height = audio_file_form.getHeight() - 2;
+        if (automation->dirty || automation->values.size() != wave_width) {
+            MixScript::ComputeParamAutomation(*source, wave_width, *automation);
+            automation->dirty = false;
+        }
+
+        g.setColour(Colour::fromRGB(0xAA, 0x77, 0x33));
+        int x = audio_file_form.getPosition().x;
+        int y = audio_file_form.getPosition().y;
+        for (const float value : automation->values) {
+            // ToDO: Better than fill rect? Render separate?
+            g.fillRect(x++, y + (int)((1.f - value) * wave_height) + 1, 1, 1);
         }
 
         g.setColour(colour);
@@ -338,13 +370,13 @@ void MainComponent::paint (Graphics& g)
     Rectangle<int> audio_file = bounds;
     //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get(), mixer->selected_track == 1,
-            mixer->mix_sync.incoming_cue_id);
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get(), nullptr, 
+            mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);
     }
     audio_file.removeFromBottom(12);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get(), mixer->selected_track == 0,
-            mixer->mix_sync.playing_cue_id);
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get(), automation_playing.get(),
+            mixer->selected_track == 0, mixer->mix_sync.playing_cue_id);
     }
 }
 
