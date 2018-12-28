@@ -13,17 +13,15 @@
 MainComponent::MainComponent() :
     menuBar(this),
     mixer(nullptr),
-    peaks_playing(nullptr),
-    automation_playing(nullptr),
-    peaks_incoming(nullptr),
+    track_playing_visuals(nullptr),
+    track_incoming_visuals(nullptr),
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
     
     mixer = std::unique_ptr<MixScript::Mixer>(new MixScript::Mixer());
-    peaks_playing = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
-    peaks_incoming = std::unique_ptr<MixScript::WavePeaks>(new MixScript::WavePeaks());
-    automation_playing = std::unique_ptr<MixScript::AmplitudeAutomation>(new MixScript::AmplitudeAutomation());
+    track_playing_visuals = std::unique_ptr<MixScript::TrackVisualCache>(new MixScript::TrackVisualCache());
+    track_incoming_visuals = std::unique_ptr<MixScript::TrackVisualCache>(new MixScript::TrackVisualCache());
 
     // Testing
     mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
@@ -76,7 +74,12 @@ MainComponent::MainComponent() :
     playing_controls.on_coefficient_changed = [this](const float gain)
     {
         mixer->UpdateGainValue(gain);
-        automation_playing->dirty = true;
+        if (mixer->selected_track == 0) {
+            track_playing_visuals->gain_automation.dirty = true;
+        }
+        else {
+            track_incoming_visuals->gain_automation.dirty = true;
+        }
     };
 
     // Make sure you set the size of the component after
@@ -288,8 +291,10 @@ void MainComponent::timerCallback() {
 }
 
 void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
-                      MixScript::WavePeaks* peaks, MixScript::AmplitudeAutomation* automation, bool selected,
-                      int sync_cue_id) {
+                      MixScript::TrackVisualCache* track_visuals, const bool selected, const int sync_cue_id) {
+    MixScript::WavePeaks& peaks = track_visuals->peaks;
+    MixScript::AmplitudeAutomation& automation = track_visuals->gain_automation;
+
     Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
     Rectangle<int> markers = audio_file_form.removeFromBottom(12);
@@ -300,42 +305,41 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
     g.drawRect(audio_file_form);
     audio_file_form.reduce(1, 1);
 
-    if (peaks != nullptr) {
-        const uint32 wave_width = audio_file_form.getWidth();
-        const uint32 wave_height = audio_file_form.getHeight();
-        if (peaks->peaks.size() != wave_width) {
-            MixScript::ComputeWavePeaks(*source, wave_width, *peaks);
-        }
+    const uint32 wave_width = audio_file_form.getWidth();
+    const uint32 wave_height = audio_file_form.getHeight();
+    if (peaks.peaks.size() != wave_width) {
+        MixScript::ComputeWavePeaks(*source, wave_width, peaks);
+    }
 
-        g.setColour(Colour::fromRGB(0x77, 0x77, 0xAA));
+    g.setColour(Colour::fromRGB(0x77, 0x77, 0xAA));
+
+    // peaks
+    {
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
-        for (const MixScript::WavePeaks::WavePeak& peak : peaks->peaks) {            
+        for (const MixScript::WavePeaks::WavePeak& peak : peaks.peaks) {
             const int line_height = wave_height * (peak.max - peak.min) / 2.f;
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
         }
-
-        g.setColour(colour);
     }
 
-    if (automation != nullptr) {
-        const uint32 wave_width = audio_file_form.getWidth();
-        const uint32 wave_height = audio_file_form.getHeight() - 2;
-        if (automation->dirty || automation->values.size() != wave_width) {
-            MixScript::ComputeParamAutomation(*source, wave_width, *automation);
-            automation->dirty = false;
+    // automation
+    {
+        if (automation.dirty || automation.values.size() != wave_width) {
+            MixScript::ComputeParamAutomation(*source, wave_width, automation);
+            automation.dirty = false;
         }
 
         g.setColour(Colour::fromRGB(0xAA, 0x77, 0x33));
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
-        for (const float value : automation->values) {
+        for (const float value : automation.values) {
             // ToDO: Better than fill rect? Render separate?
             g.fillRect(x++, y + (int)((1.f - value) * wave_height) + 1, 1, 1);
         }
-
-        g.setColour(colour);
     }
+
+    g.setColour(colour);
 
     g.setFont(10);
     uint8_t* const audio_start = source->audio_start;
@@ -370,12 +374,12 @@ void MainComponent::paint (Graphics& g)
     Rectangle<int> audio_file = bounds;
     //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, peaks_incoming.get(), nullptr, 
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, track_incoming_visuals.get(), 
             mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);
     }
     audio_file.removeFromBottom(12);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, peaks_playing.get(), automation_playing.get(),
+        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, track_playing_visuals.get(),
             mixer->selected_track == 0, mixer->mix_sync.playing_cue_id);
     }
 }

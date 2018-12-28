@@ -55,6 +55,11 @@ namespace MixScript
         }
     };
 
+    struct TrackVisualCache {
+        WavePeaks peaks;
+        AmplitudeAutomation gain_automation;
+    };
+
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
