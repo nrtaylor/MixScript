@@ -11,6 +11,7 @@ TrackControlsComponent::TrackControlsComponent() {
     //slider_temperature.setTextValueSuffix(" F");
     slider_gain.setValue(1.0);
     slider_gain.onValueChange = value_changed_func;
+    slider_gain.setWantsKeyboardFocus(true); 
     addAndMakeVisible(&slider_gain);
 
     //label_cutoff.setText("Cuttoff Freq", dontSendNotification);
@@ -20,6 +21,10 @@ TrackControlsComponent::TrackControlsComponent() {
     setSize(slider_width + 4, 88);
 
     HandleValueChanged(dontSendNotification);
+}
+
+void TrackControlsComponent::Focus() {
+    slider_gain.showTextBox();
 }
 
 void TrackControlsComponent::LoadControls(const float _gain, const NotificationType notification) {

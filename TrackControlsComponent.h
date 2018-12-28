@@ -11,6 +11,8 @@ public:
     void LoadControls(const float _gain, const NotificationType notification);
 
     std::function<void(const float cuttoff_frequency)> on_coefficient_changed;
+
+    void Focus();
 private:
     void HandleValueChanged(const NotificationType notification);
 

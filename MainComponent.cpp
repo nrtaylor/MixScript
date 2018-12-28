@@ -183,7 +183,7 @@ bool MainComponent::keyPressed(const KeyPress &key)
     else if (key_code == (int)'S') {
         if (playback_paused && key.getModifiers().isShiftDown()) {
             mixer->SetMixSync();
-        }        
+        }
     }
     else if (key_code == (int)' ') {
         const bool set_playback_paused = !playback_paused.load();
@@ -194,6 +194,9 @@ bool MainComponent::keyPressed(const KeyPress &key)
     }
     else if (key_code == 'M' && key.getModifiers().isShiftDown()) {
         modifier_mono = true;
+    }
+    else if (key_code == (int)'G' && key.getModifiers().isAltDown()) {
+        playing_controls.Focus();
     }
     if (refresh_controls) {
         LoadControls();
@@ -372,14 +375,14 @@ void MainComponent::paint (Graphics& g)
     // You can add your drawing code here!
     const Rectangle<int> bounds = g.getClipBounds();
     Rectangle<int> audio_file = bounds;
-    //Rectangle<int> audio_file_form = audio_file.removeFromBottom(120);
+    const int track_height = 160;
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_incoming, track_incoming_visuals.get(), 
+        PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),
             mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);
     }
-    audio_file.removeFromBottom(12);
+    audio_file.removeFromBottom(8);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
-        PaintAudioSource(g, audio_file.removeFromBottom(120), track_playing, track_playing_visuals.get(),
+        PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_playing, track_playing_visuals.get(),
             mixer->selected_track == 0, mixer->mix_sync.playing_cue_id);
     }
 }
