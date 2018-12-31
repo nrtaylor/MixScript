@@ -6,6 +6,7 @@
 #include <windows.h>
 #define _USE_MATH_DEFINES
 #include <math.h>
+#include <algorithm>
 #include <stdint.h>
 #include <memory>
 #include <vector>
@@ -136,13 +137,6 @@ namespace MixScript
         return expf(db * log_10);
     }
 
-    enum MixFadeType : int32_t {
-        MFT_LINEAR = 1,
-        MFT_SQRT,
-        MFT_TRIG,
-        MFT_EXP,
-    };
-
     Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0) {
         modifier_mono = false;        
     }
@@ -170,14 +164,22 @@ namespace MixScript
         return cue_starts[selected_marker - 1];
     }
 
-    float Mixer::GainValue() const {
+    float Mixer::GainValue(float& interpolation_percent) const {
         const WaveAudioSource& source = Selected();
-        const float gain = source.gain_control.Apply(source.SelectedMarkerPos(), 1.f);
+        interpolation_percent = 0.0f;
+        uint8_t const * const cue_pos = source.SelectedMarkerPos();
+        const float gain = source.gain_control.Apply(cue_pos, 1.f);
+        const auto& movements = source.gain_control.movements;
+        auto it = std::find_if(movements.begin(), movements.end(),
+            [&](const Movement<GainParams>& a) { return a.cue_pos == cue_pos; });
+        if (it != movements.end()) {
+            interpolation_percent = (*it).threshold_percent;
+        }
 
         return gain;
     }
 
-    void Mixer::UpdateGainValue(float gain) {
+    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent) {
         WaveAudioSource& source = Selected();
         const int cue_id = source.selected_marker;
         if (cue_id > 0) {
@@ -187,6 +189,7 @@ namespace MixScript
             for (Movement<GainParams>& movement : source.gain_control.movements) {
                 if (movement.cue_pos == marker_pos) {
                     movement.params.gain = gain;
+                    movement.threshold_percent = interpolation_percent;
                     found = true;
                     break;
                 }
@@ -197,11 +200,12 @@ namespace MixScript
             }
             if (!found) {
                 if (gain_cue_id >= source.gain_control.movements.size()) {
-                    source.gain_control.Add(GainParams{ gain }, marker_pos);
+                    Movement<GainParams>& movement = source.gain_control.Add(GainParams{ gain }, marker_pos);
+                    movement.threshold_percent = interpolation_percent;
                 }
                 else {
                     source.gain_control.movements.insert(source.gain_control.movements.begin() + gain_cue_id,
-                        Movement<GainParams>{ GainParams{ gain }, marker_pos } );
+                        Movement<GainParams>{ GainParams{ gain }, MFT_LINEAR, interpolation_percent, marker_pos } );
                 }
             }
         }
@@ -219,6 +223,25 @@ namespace MixScript
             return *incoming.get();
         }
         return *playing.get();
+    }
+
+    int Mixer::MarkerLeft() const {
+        const WaveAudioSource& source = Selected();
+        int cue_id = source.selected_marker;
+        if (--cue_id <= 0) {
+            cue_id = static_cast<int>(source.cue_starts.size());
+        }
+        return cue_id;
+    }
+
+    int Mixer::MarkerRight() const {
+        const WaveAudioSource& source = Selected();
+        int cue_id = source.selected_marker;
+        const int num_markers = static_cast<int>(source.cue_starts.size());
+        if (++cue_id > num_markers) {
+            cue_id = 1;
+        }
+        return cue_id;
     }
 
     void Mixer::SetSelectedMarker(int cue_id) {
@@ -256,8 +279,9 @@ namespace MixScript
     }
 
     template<typename Params>
-    void MixerControl<Params>::Add(Params&& params, uint8_t const * const position) {
-        movements.emplace_back(Movement<Params>{ params, position });
+    Movement<Params>& MixerControl<Params>::Add(Params&& params, uint8_t const * const position) {
+        movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, position });
+        return movements.back();
     }
 
     template<typename Params>
@@ -287,9 +311,20 @@ namespace MixScript
             const float duration = (float)(end_state.cue_pos - start_state.cue_pos);
 
             const float start_value = start_state.params.Apply(sample);
+            float ratio = t / duration;
+            if (ratio < end_state.threshold_percent) {
+                return start_value;
+            }
             const float end_value = end_state.params.Apply(sample);
 
-            return InterpolateMix(end_value - start_value, t/duration, MFT_LINEAR) + start_value;
+            // TODO: Clean up
+            if (end_state.threshold_percent > 0.f) {
+                uint8_t const * const start_pos = start_state.cue_pos +
+                    static_cast<int32_t>(duration * end_state.threshold_percent);
+                ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
+            }
+
+            return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
         }
     }
 
@@ -314,13 +349,6 @@ namespace MixScript
             left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             if (playing_.read_pos >= front) {
-                //const uint32_t delta = static_cast<decltype(delta)>(playing_.read_pos - front)/playing_.format.channels;
-                // Continuous Mode
-                //const float gain = InterpolateMix(delta, inv_duration, MFT_EXP);
-                //incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
-                //const float gain = InterpolateMix(cue_id, inv_cue_size, MFT_SQRT);
-                //left = playing_.Read() + incoming_.Read() * gain;
-                //right = playing_.Read() + incoming_.Read() * gain;
                 uint8_t const * const incoming_read_pos = incoming_.read_pos;
                 left += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
                 right += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());

@@ -71,9 +71,9 @@ MainComponent::MainComponent() :
 
     playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
     addAndMakeVisible(&playing_controls);
-    playing_controls.on_coefficient_changed = [this](const float gain)
+    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent)
     {
-        mixer->UpdateGainValue(gain);
+        mixer->UpdateGainValue(gain, interpolation_percent);
         if (mixer->selected_track == 0) {
             track_playing_visuals->gain_automation.dirty = true;
         }
@@ -152,8 +152,9 @@ void MainComponent::releaseResources()
 
 void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
-    const float gain_amount = mixer->GainValue();
-    playing_controls.LoadControls(gain_amount, juce::NotificationType::dontSendNotification);
+    float interpolation_percent = 0.f;
+    const float gain_amount = mixer->GainValue(interpolation_percent);
+    playing_controls.LoadControls(gain_amount, interpolation_percent, juce::NotificationType::dontSendNotification);
 }
 
 bool MainComponent::keyPressed(const KeyPress &key)
@@ -179,6 +180,20 @@ bool MainComponent::keyPressed(const KeyPress &key)
     else if (key_code == KeyPress::upKey) {
         mixer->selected_track = ++mixer->selected_track % 2;
         refresh_controls = true;
+    }
+    else if (key_code == KeyPress::leftKey) {
+        if (playback_paused &&
+            key.getModifiers().isCtrlDown()) {
+            mixer->SetSelectedMarker(mixer->MarkerLeft());
+            refresh_controls = true;
+        }
+    }
+    else if (key_code == KeyPress::rightKey) {
+        if (playback_paused &&
+            key.getModifiers().isCtrlDown()) {
+            mixer->SetSelectedMarker(mixer->MarkerRight());
+            refresh_controls = true;
+        }
     }
     else if (key_code == (int)'S') {
         if (playback_paused && key.getModifiers().isShiftDown()) {

@@ -24,9 +24,18 @@ namespace MixScript
         }
     };
 
+    enum MixFadeType : int32_t {
+        MFT_LINEAR = 1,
+        MFT_SQRT,
+        MFT_TRIG,
+        MFT_EXP,
+    };
+
     template<typename Params>
     struct Movement {
         Params params;
+        MixFadeType interpolation_type;
+        float threshold_percent;
         const uint8_t* cue_pos;
     };
 
@@ -34,7 +43,7 @@ namespace MixScript
     struct MixerControl {        
         std::vector<Movement<Params> > movements;
 
-        void Add(Params&& params, uint8_t const * const position);
+        Movement<Params>& Add(Params&& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
     };
 
@@ -131,10 +140,6 @@ namespace MixScript
     };
 
     //Select Control[Gain | Low | Mid | High...]
-    //Select Cue[1..9]
-    //Select Track[O | I]
-    //Set Focus on Slider
-    //Optional : Set interpolation mode
     class Mixer {
     public:
         Mixer();
@@ -155,9 +160,12 @@ namespace MixScript
         const WaveAudioSource* Playing() const { return playing.get(); }
         const WaveAudioSource* Incoming() const { return incoming.get(); }        
 
+        int MarkerLeft() const;
+        int MarkerRight() const;
+
         void SetSelectedMarker(int cue_id);
-        void UpdateGainValue(float gain);
-        float GainValue() const;
+        void UpdateGainValue(const float gain, const float interpolation_percent);
+        float GainValue(float& interpolation_percent) const;
         void SetMixSync();
     private:
         WaveAudioSource& Selected();
