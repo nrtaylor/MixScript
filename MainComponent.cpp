@@ -9,6 +9,8 @@
 #include "MainComponent.h"
 #include "WavAudioSource.h"
 
+#include <windows.h> // for debug
+
 //==============================================================================
 MainComponent::MainComponent() :
     menuBar(this),
@@ -230,6 +232,20 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
     return false;
 }
 
+void MainComponent::mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel) {
+    if (wheel.deltaY != 0.f) {
+        //char buf[200];
+        //sprintf_s(buf, "DeltaY: %.1f\n", wheel.deltaY);
+        //OutputDebugString(buf);
+        if (wheel.deltaY > 0) {
+            track_playing_visuals->ChangeZoom(1);
+        }
+        else {
+            track_playing_visuals->ChangeZoom(-1);
+        }
+    }
+}
+
 void MainComponent::SaveProject() {
     const bool paused_state = playback_paused.load();
     playback_paused = true;
@@ -308,14 +324,14 @@ void MainComponent::timerCallback() {
     repaint();
 }
 
-void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
+void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
                       MixScript::TrackVisualCache* track_visuals, const bool selected, const int sync_cue_id) {
     MixScript::WavePeaks& peaks = track_visuals->peaks;
     MixScript::AmplitudeAutomation& automation = track_visuals->gain_automation;
 
-    Rectangle<int> audio_file_form = rect;
+    juce::Rectangle<int> audio_file_form = rect;
     audio_file_form.reduce(12, 12);
-    Rectangle<int> markers = audio_file_form.removeFromBottom(12);
+    juce::Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
     const Colour colour = selected ? Colour::fromRGB(0, 0, 0x88) : Colour::fromRGB(0x33, 0x33, 0x66);
 
@@ -325,8 +341,10 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
 
     const uint32 wave_width = audio_file_form.getWidth();
     const uint32 wave_height = audio_file_form.getHeight();
-    if (peaks.peaks.size() != wave_width) {
-        MixScript::ComputeWavePeaks(*source, wave_width, peaks);
+    if (peaks.dirty || peaks.peaks.size() != wave_width) {
+        MixScript::ComputeWavePeaks(*source, wave_width, peaks, track_visuals->zoom_factor);
+        automation.dirty = true; // TODO: clean-up
+        peaks.dirty = false;
     }
 
     g.setColour(Colour::fromRGB(0x77, 0x77, 0xAA));
@@ -368,7 +386,7 @@ void PaintAudioSource(Graphics& g, const Rectangle<int>& rect, const MixScript::
         const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
         g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);
         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
-        const Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
+        const juce::Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
         g.drawText(cue_label, label_rect, juce::Justification::centred);
         if (source->selected_marker == cue_id) {
             g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
@@ -388,8 +406,8 @@ void MainComponent::paint (Graphics& g)
     g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
 
     // You can add your drawing code here!
-    const Rectangle<int> bounds = g.getClipBounds();
-    Rectangle<int> audio_file = bounds;
+    const juce::Rectangle<int> bounds = g.getClipBounds();
+    juce::Rectangle<int> audio_file = bounds;
     const int track_height = 160;
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),

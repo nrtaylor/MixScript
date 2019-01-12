@@ -36,6 +36,7 @@ public:
 
     bool keyPressed(const KeyPress & key) override;
     bool keyStateChanged(bool isKeyDown) override;
+    void mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel) override;
 
     StringArray getMenuBarNames() override;
     PopupMenu getMenuForIndex(int topLevelMenuIndex, const String& menuName) override;

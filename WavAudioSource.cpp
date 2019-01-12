@@ -693,22 +693,24 @@ namespace MixScript
         }
     }
 
-    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks) {
+    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
+        const int zoom_factor) {
+        const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
-        const uint32_t sample_count = delta / ByteRate(source.format);
+        const uint32_t sample_count = zoom_amount * delta / ByteRate(source.format);
         const float samples_per_pixel = sample_count / (float) pixel_width;
 
         peaks.peaks.resize(pixel_width);
         const uint8_t* read_pos = source.audio_start;
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
-            peak.max = 0.f;
-            peak.min = 0.f;
+            peak.max = -FLT_MAX;
+            peak.min = FLT_MAX;
             for (int i = 0; i < samples_per_pixel; ++i) {
                 const float sample = source.Read(&read_pos);
                 if (sample > peak.max) {
                     peak.max = sample;
                 }
-                else if (sample < peak.min) {
+                if (sample < peak.min) {
                     peak.min = sample;
                 }
             }

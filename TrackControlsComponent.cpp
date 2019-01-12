@@ -38,11 +38,8 @@ void TrackControlsComponent::LoadControls(const float _gain, const float _interp
 }
 
 void TrackControlsComponent::HandleValueChanged(const NotificationType notification) {
-    if (notification != dontSendNotification)
-    {
-        if (on_coefficient_changed != nullptr)
-        {
-            on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue());
-        }
+    if (on_coefficient_changed != nullptr &&
+        notification != dontSendNotification) {
+        on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue());
     }
 }
