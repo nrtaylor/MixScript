@@ -176,12 +176,21 @@ bool MainComponent::keyPressed(const KeyPress &key)
         //return true; // TODO: Handle/not handled
     }
     else if (key_code == KeyPress::downKey) {
-        mixer->selected_track = ++mixer->selected_track % 2;
-        refresh_controls = true;
+        if (key.getModifiers().isCtrlDown()) {
+            SelectedVisuals()->ChangeZoom(-1);
+        } else {
+            mixer->selected_track = ++mixer->selected_track % 2;
+            refresh_controls = true;
+        }
     }
     else if (key_code == KeyPress::upKey) {
-        mixer->selected_track = ++mixer->selected_track % 2;
-        refresh_controls = true;
+        if (key.getModifiers().isCtrlDown()) {
+            SelectedVisuals()->ChangeZoom(1);
+        }
+        else {
+            mixer->selected_track = ++mixer->selected_track % 2;
+            refresh_controls = true;
+        }
     }
     else if (key_code == KeyPress::leftKey) {
         if (playback_paused &&
@@ -232,16 +241,17 @@ bool MainComponent::keyStateChanged(bool isKeyDown) {
     return false;
 }
 
+MixScript::TrackVisualCache* MainComponent::SelectedVisuals() {
+    return mixer->selected_track == 0 ? track_playing_visuals.get() : track_incoming_visuals.get();
+}
+
 void MainComponent::mouseWheelMove(const MouseEvent& event, const MouseWheelDetails& wheel) {
     if (wheel.deltaY != 0.f) {
-        //char buf[200];
-        //sprintf_s(buf, "DeltaY: %.1f\n", wheel.deltaY);
-        //OutputDebugString(buf);
         if (wheel.deltaY > 0) {
-            track_playing_visuals->ChangeZoom(1);
+            SelectedVisuals()->ChangeZoom(1);
         }
         else {
-            track_playing_visuals->ChangeZoom(-1);
+            SelectedVisuals()->ChangeZoom(-1);
         }
     }
 }

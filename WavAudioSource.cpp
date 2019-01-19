@@ -702,6 +702,19 @@ namespace MixScript
 
         peaks.peaks.resize(pixel_width);
         const uint8_t* read_pos = source.audio_start;
+        auto cursor_pos = source.SelectedMarkerPos();
+        if (zoom_amount < 1.f && cursor_pos != read_pos) {
+            // TODO: Clean-up
+            const uint32_t marker_delta = cursor_pos - source.audio_start;
+            const float marker_ratio = marker_delta / (float)delta;
+            const uint32_t cursor_pixel = pixel_width * marker_ratio;
+            const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
+            const uint32_t cursor_screen_pos = cursor_pixel * bytes_per_pixel;
+            const uint32_t cursor_alignment = cursor_screen_pos % (ByteRate(source.format) * source.format.channels);
+            const uint32_t offset = marker_delta - (cursor_screen_pos - cursor_alignment);
+            read_pos = read_pos + offset;
+        }
+        
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;

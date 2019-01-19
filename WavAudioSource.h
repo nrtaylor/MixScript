@@ -77,6 +77,12 @@ namespace MixScript
         TrackVisualCache() : zoom_factor(0) {}
 
         void ChangeZoom(const int delta) {
+            if (delta < 0 && zoom_factor <= 0) {
+                return;
+            }
+            else if (delta > 0 && zoom_factor >= 20) {
+                return;
+            }
             zoom_factor += delta;
             peaks.dirty = true;
         }

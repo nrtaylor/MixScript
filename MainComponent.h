@@ -53,6 +53,7 @@ private:
 
     std::unique_ptr<MixScript::TrackVisualCache> track_playing_visuals;
     std::unique_ptr<MixScript::TrackVisualCache> track_incoming_visuals;
+    MixScript::TrackVisualCache* SelectedVisuals();
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;
