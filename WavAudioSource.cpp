@@ -680,13 +680,32 @@ namespace MixScript
         return format.bit_rate / 8;
     }
 
-    void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation) {
+    const uint8_t* ZoomScrollOffsetPos(const WaveAudioSource& source, uint8_t const * const cursor_pos,
+        const uint32_t pixel_width, const float zoom_amount) {
+        const uint8_t* read_pos = source.audio_start;        
+        if (cursor_pos != read_pos && zoom_amount < 1.f) {
+            // TODO: Clean-up
+            const uint32_t delta = source.audio_end - source.audio_start;
+            const uint32_t marker_delta = cursor_pos - source.audio_start;
+            const float marker_ratio = marker_delta / (float)delta;
+            const uint32_t cursor_pixel = pixel_width * marker_ratio;
+            const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
+            const uint32_t cursor_screen_pos = cursor_pixel * bytes_per_pixel;
+            const uint32_t cursor_alignment = cursor_screen_pos % (ByteRate(source.format) * source.format.channels);
+            const uint32_t offset = marker_delta - (cursor_screen_pos - cursor_alignment);
+            read_pos = read_pos + offset;
+        }
+        return read_pos;
+    }
+
+    void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
+        const int zoom_factor) {
+        const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
-        //const uint32_t byte_rate = ByteRate(source.format) * source.format.channels;
-        const uint32_t bytes_per_pixel = (uint32_t)(delta / (float)pixel_width);
+        const uint32_t bytes_per_pixel = (uint32_t)(zoom_amount * delta / (float)pixel_width);
 
         automation.values.resize(pixel_width);
-        const uint8_t* read_pos = source.audio_start;
+        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);
         for (float& value : automation.values) {
             value = source.gain_control.Apply(read_pos, 1.f);
             read_pos += bytes_per_pixel;
@@ -701,23 +720,11 @@ namespace MixScript
         const float samples_per_pixel = sample_count / (float) pixel_width;
 
         peaks.peaks.resize(pixel_width);
-        const uint8_t* read_pos = source.audio_start;
-        auto cursor_pos = source.SelectedMarkerPos();
-        if (zoom_amount < 1.f && cursor_pos != read_pos) {
-            // TODO: Clean-up
-            const uint32_t marker_delta = cursor_pos - source.audio_start;
-            const float marker_ratio = marker_delta / (float)delta;
-            const uint32_t cursor_pixel = pixel_width * marker_ratio;
-            const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
-            const uint32_t cursor_screen_pos = cursor_pixel * bytes_per_pixel;
-            const uint32_t cursor_alignment = cursor_screen_pos % (ByteRate(source.format) * source.format.channels);
-            const uint32_t offset = marker_delta - (cursor_screen_pos - cursor_alignment);
-            read_pos = read_pos + offset;
-        }
-        
+        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);        
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
+            // TODO: Handle float to int
             for (int i = 0; i < samples_per_pixel; ++i) {
                 const float sample = source.Read(&read_pos);
                 if (sample > peak.max) {

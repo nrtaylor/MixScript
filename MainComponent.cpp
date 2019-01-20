@@ -364,7 +364,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
         for (const MixScript::WavePeaks::WavePeak& peak : peaks.peaks) {
-            const int line_height = wave_height * (peak.max - peak.min) / 2.f;
+            const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
         }
     }
@@ -372,7 +372,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     // automation
     {
         if (automation.dirty || automation.values.size() != wave_width) {
-            MixScript::ComputeParamAutomation(*source, wave_width, automation);
+            MixScript::ComputeParamAutomation(*source, wave_width, automation, track_visuals->zoom_factor);
             automation.dirty = false;
         }
 
