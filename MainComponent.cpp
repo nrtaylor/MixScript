@@ -381,15 +381,11 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         int y = audio_file_form.getPosition().y;
         int previous_y = -1;
         for (const float value : automation.values) {
-            // ToDO: Better than fill rect? Render separate?
             const int offset_y = (int)((1.f - value) * wave_height) + 1;
-            if (previous_y > 0 && (offset_y & previous_y) > 2) {
+            if (previous_y > 0 && (offset_y ^ previous_y) > 1) {
                 g.drawLine(x - 1, y + previous_y, x, y + offset_y);
-                x++;
             }
-            else {
-                g.fillRect(x++, y + offset_y, 1, 1);
-            }
+            g.fillRect(x++, y + offset_y, 1, 1);
             previous_y = offset_y;
         }
     }
