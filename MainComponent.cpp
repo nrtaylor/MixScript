@@ -352,7 +352,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     const uint32 wave_width = audio_file_form.getWidth();
     const uint32 wave_height = audio_file_form.getHeight();
     if (peaks.dirty || peaks.peaks.size() != wave_width) {
-        MixScript::ComputeWavePeaks(*source, wave_width, peaks, track_visuals->zoom_factor);
+        track_visuals->scroll_offset = MixScript::ComputeWavePeaks(*source, wave_width, peaks, track_visuals->zoom_factor);
         automation.dirty = true; // TODO: clean-up
         peaks.dirty = false;
     }
@@ -393,10 +393,15 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     g.setColour(colour);
 
     g.setFont(10);
-    uint8_t* const audio_start = source->audio_start;
-    const float inv_duration = 1.f / (float)(source->audio_end - audio_start);
+    uint8_t const * const audio_start = track_visuals->scroll_offset;
+    const float zoom_amount = track_visuals->zoom_factor > 0 ? powf(2, track_visuals->zoom_factor) : 1.f;
+    const float inv_duration = zoom_amount / (float)(source->audio_end - source->audio_start);
     int cue_id = 1;
     for (const uint8_t* cue_pos : source->cue_starts) {
+        if (cue_pos < audio_start) {
+            ++cue_id;
+            continue;
+        }
         const float ratio = (cue_pos - audio_start) * inv_duration;
         const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
         g.drawLine(pixel_pos, audio_file_form.getBottom(), pixel_pos, audio_file_form.getTopLeft().y, 1.f);

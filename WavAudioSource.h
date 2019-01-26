@@ -71,10 +71,11 @@ namespace MixScript
     
     struct TrackVisualCache {
         std::atomic_int32_t zoom_factor;
+        const uint8_t* scroll_offset;
         WavePeaks peaks;
         AmplitudeAutomation gain_automation;
 
-        TrackVisualCache() : zoom_factor(0) {}
+        TrackVisualCache() : zoom_factor(0), scroll_offset(nullptr) {}
 
         void ChangeZoom(const int delta) {
             if (delta < 0 && zoom_factor <= 0) {
@@ -116,7 +117,8 @@ namespace MixScript
             uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
     };
 
-    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks, const int zoom_factor);
+    const uint8_t* ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
+        const int zoom_factor);
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
         const int zoom_factor);
 

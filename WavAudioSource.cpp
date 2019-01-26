@@ -712,7 +712,7 @@ namespace MixScript
         }
     }
 
-    void ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
+    const uint8_t* ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
         const int zoom_factor) {
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
@@ -720,7 +720,8 @@ namespace MixScript
         const float samples_per_pixel = sample_count / (float) pixel_width;
 
         peaks.peaks.resize(pixel_width);
-        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);        
+        uint8_t const * const scroll_offset = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);
+        const uint8_t* read_pos = scroll_offset;
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
@@ -735,5 +736,6 @@ namespace MixScript
                 }
             }
         }
+        return scroll_offset;
     }
 }
