@@ -722,11 +722,21 @@ namespace MixScript
         peaks.peaks.resize(pixel_width);
         uint8_t const * const scroll_offset = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);
         const uint8_t* read_pos = scroll_offset;
+        float remainder = 0.f;
+        const float remainder_amount = samples_per_pixel - floorf(samples_per_pixel);
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
             // TODO: Handle float to int
-            for (int i = 0; i < samples_per_pixel; ++i) {
+            int i = 0;
+            if (remainder >= 1.f) {
+                remainder -= 1.f;
+                ++i;
+                if (samples_per_pixel < 1.f) {
+                    peak.max = peak.min = 0.f;
+                }
+            }
+            for (; i < samples_per_pixel; ++i) {
                 const float sample = source.Read(&read_pos);
                 if (sample > peak.max) {
                     peak.max = sample;
@@ -735,6 +745,7 @@ namespace MixScript
                     peak.min = sample;
                 }
             }
+            remainder += remainder_amount;
         }
         return scroll_offset;
     }
