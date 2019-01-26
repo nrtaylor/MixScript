@@ -76,12 +76,7 @@ MainComponent::MainComponent() :
     playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent)
     {
         mixer->UpdateGainValue(gain, interpolation_percent);
-        if (mixer->selected_track == 0) {
-            track_playing_visuals->gain_automation.dirty = true;
-        }
-        else {
-            track_incoming_visuals->gain_automation.dirty = true;
-        }
+        SelectedVisuals()->gain_automation.dirty = true;
     };
 
     // Make sure you set the size of the component after
@@ -157,6 +152,7 @@ void MainComponent::LoadControls() {
     float interpolation_percent = 0.f;
     const float gain_amount = mixer->GainValue(interpolation_percent);
     playing_controls.LoadControls(gain_amount, interpolation_percent, juce::NotificationType::dontSendNotification);
+    SelectedVisuals()->peaks.dirty = true;
 }
 
 bool MainComponent::keyPressed(const KeyPress &key)
