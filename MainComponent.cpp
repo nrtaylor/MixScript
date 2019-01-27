@@ -399,7 +399,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
             continue;
         }
         const float ratio = (cue_pos - audio_start) * inv_duration;
-        const int pixel_pos = static_cast<int>(ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
+        const int pixel_pos = static_cast<int>(ratio * wave_width) + audio_file_form.getPosition().x;
         g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1, audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
         const juce::Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
@@ -410,10 +410,12 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         ++cue_id;
     }
     g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
-    const float play_pos_ratio = source->last_read_pos * inv_duration;
-    const int play_pos = static_cast<int>(play_pos_ratio * audio_file_form.getWidth()) + audio_file_form.getPosition().x;
-    g.fillRect(play_pos, audio_file_form.getTopLeft().y, 1,
-        audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
+    const float play_pos_ratio = (source->last_read_pos - (track_visuals->scroll_offset - source->audio_start)) * inv_duration;
+    if (play_pos_ratio < 1.f) {
+        const int play_pos = static_cast<int>(play_pos_ratio * wave_width) + audio_file_form.getPosition().x;
+        g.fillRect(play_pos, audio_file_form.getTopLeft().y, 1,
+            audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
+    }
 }
 
 //==============================================================================

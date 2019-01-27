@@ -688,7 +688,7 @@ namespace MixScript
             const uint32_t delta = source.audio_end - source.audio_start;
             const uint32_t marker_delta = cursor_pos - source.audio_start;
             const float marker_ratio = marker_delta / (float)delta;
-            const uint32_t cursor_pixel = pixel_width * marker_ratio;
+            const float cursor_pixel = pixel_width * marker_ratio;
             const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
             const uint32_t cursor_screen_pos = cursor_pixel * bytes_per_pixel;
             const uint32_t cursor_alignment = cursor_screen_pos % (ByteRate(source.format) * source.format.channels);
