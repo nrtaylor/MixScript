@@ -68,27 +68,6 @@ namespace MixScript
             dirty = false;
         }
     };
-    
-    struct TrackVisualCache {
-        std::atomic_int32_t zoom_factor;
-        const uint8_t* scroll_offset;
-        WavePeaks peaks;
-        AmplitudeAutomation gain_automation;
-
-        TrackVisualCache() : zoom_factor(0), scroll_offset(nullptr) {}
-
-        void ChangeZoom(const int delta) {
-            if (delta < 0 && zoom_factor <= 0) {
-                return;
-            }
-            else if (delta > 0 && zoom_factor >= 20) {
-                return;
-            }
-            zoom_factor += delta;
-            peaks.dirty = true;
-        }
-    };
-
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
@@ -111,6 +90,7 @@ namespace MixScript
         const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
         void AddMarker();
+        void MoveSelectedMarker(const int32_t num_samples);
 
         ~WaveAudioSource();
 
@@ -178,6 +158,9 @@ namespace MixScript
         MixSync mix_sync;
         int selected_track;
 
+        WaveAudioSource& Selected();
+        const WaveAudioSource& Selected() const;
+
         void ResetToCue(const uint32_t cue_id);
 
         const WaveAudioSource* Playing() const { return playing.get(); }
@@ -192,8 +175,6 @@ namespace MixScript
         void SetMixSync();
         void AddMarker();
     private:
-        WaveAudioSource& Selected();
-        const WaveAudioSource& Selected() const;
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;
@@ -201,4 +182,26 @@ namespace MixScript
 
     template void Mixer::Mix<FloatOutputWriter>(FloatOutputWriter& output_writer, int samples_to_read);
     template void Mixer::Mix<PCMOutputWriter>(PCMOutputWriter& output_writer, int samples_to_read);
+
+    struct TrackVisualCache {
+        std::atomic_int32_t zoom_factor;
+        const uint8_t* scroll_offset;
+        WavePeaks peaks;
+        AmplitudeAutomation gain_automation;
+
+        TrackVisualCache() : zoom_factor(0), scroll_offset(nullptr) {}
+
+        uint32_t SamplesPerPixel(const WaveAudioSource& source) const;
+
+        void ChangeZoom(const int delta) {
+            if (delta < 0 && zoom_factor <= 0) {
+                return;
+            }
+            else if (delta > 0 && zoom_factor >= 20) {
+                return;
+            }
+            zoom_factor += delta;
+            peaks.dirty = true;
+        }
+    };
 }

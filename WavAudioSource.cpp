@@ -59,6 +59,24 @@ namespace MixScript
         write_pos += 2; // TODO: Byte rate
     }
 
+    void WaveAudioSource::MoveSelectedMarker(const int32_t num_samples) {
+        if (selected_marker <= 0) {
+            return;
+        }
+        const int selected_marker_index = selected_marker - 1;
+        cue_starts[selected_marker_index] += num_samples;
+        if (selected_marker_index > 0 &&
+            cue_starts[selected_marker_index - 1] > cue_starts[selected_marker_index]) {
+            std::swap(cue_starts[selected_marker_index - 1], cue_starts[selected_marker_index]);
+            --selected_marker;
+        }
+        else if (selected_marker_index < cue_starts.size() - 1 &&
+            cue_starts[selected_marker_index + 1] < cue_starts[selected_marker_index]) {
+            std::swap(cue_starts[selected_marker_index + 1], cue_starts[selected_marker_index]);
+            ++selected_marker;
+        }        
+    }
+
     void WaveAudioSource::AddMarker() {
         auto it = cue_starts.begin();
         for (; it != cue_starts.end(); ++it) {
@@ -714,6 +732,15 @@ namespace MixScript
             read_pos = read_pos + offset;
         }
         return read_pos;
+    }
+
+    uint32_t TrackVisualCache::SamplesPerPixel(const WaveAudioSource& source) const {
+        const int32_t pixel_width = static_cast<int32_t>(peaks.peaks.size());
+        const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
+        const uint32_t delta = (source.audio_end - source.audio_start)/(ByteRate(source.format) * source.format.channels);
+        const uint32_t samples_per_pixel = (uint32_t)(zoom_amount * delta / (float)pixel_width);
+
+        return samples_per_pixel;
     }
 
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,

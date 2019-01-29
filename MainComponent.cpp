@@ -189,17 +189,27 @@ bool MainComponent::keyPressed(const KeyPress &key)
         }
     }
     else if (key_code == KeyPress::leftKey) {
-        if (playback_paused &&
-            key.getModifiers().isCtrlDown()) {
-            mixer->SetSelectedMarker(mixer->MarkerLeft());
-            refresh_controls = true;
+        if (playback_paused) {
+            if (key.getModifiers().isCtrlDown()) {
+                mixer->SetSelectedMarker(mixer->MarkerLeft());
+                refresh_controls = true;
+            }
+            else {
+                const uint32 samples_per_pixel = SelectedVisuals()->SamplesPerPixel(mixer->Selected());
+                mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? -samples_per_pixel : -1);
+            }
         }
     }
     else if (key_code == KeyPress::rightKey) {
-        if (playback_paused &&
-            key.getModifiers().isCtrlDown()) {
-            mixer->SetSelectedMarker(mixer->MarkerRight());
-            refresh_controls = true;
+        if (playback_paused) {
+            if (key.getModifiers().isCtrlDown()) {
+                mixer->SetSelectedMarker(mixer->MarkerRight());
+                refresh_controls = true;
+            }
+            else {
+                const uint32 samples_per_pixel = SelectedVisuals()->SamplesPerPixel(mixer->Selected());
+                mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? samples_per_pixel : 1);
+            }
         }
     }
     else if (key_code == (int)'S') {
@@ -230,6 +240,7 @@ bool MainComponent::keyPressed(const KeyPress &key)
     }
     if (refresh_controls) {
         LoadControls();
+        return true;
     }
     return false;
 }
