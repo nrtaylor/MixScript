@@ -59,6 +59,16 @@ namespace MixScript
         write_pos += 2; // TODO: Byte rate
     }
 
+    void WaveAudioSource::AddMarker() {
+        auto it = cue_starts.begin();
+        for (; it != cue_starts.end(); ++it) {
+            if (*it > read_pos) {
+                break;
+            }
+        }
+        cue_starts.insert(it, read_pos);
+    }
+
     void WaveAudioSource::TryWrap() {
         if (read_pos >= audio_end) {
             read_pos = audio_start;
@@ -248,6 +258,11 @@ namespace MixScript
         Selected().selected_marker = cue_id;
     }
 
+    void Mixer::AddMarker() {
+        playing->AddMarker();
+        incoming->AddMarker();
+    }
+
     void Mixer::SetMixSync() {
         switch (selected_track)
         {
@@ -372,6 +387,9 @@ namespace MixScript
 
     void Mixer::ResetToCue(const uint32_t cue_id) {
         MixScript::ResetToCue(playing, cue_id);
+        if (cue_id == 0) { // TODO: This will lead to marker bugs.
+            MixScript::ResetToCue(incoming, cue_id);
+        }
     }
 
     void SaveAudioSource(const WaveAudioSource* source, std::ofstream& fs) {
@@ -430,7 +448,7 @@ namespace MixScript
         ParseStartBlock("audio_source", line);
         std::getline(fs, line);
         std::string cue_pos;
-        std::vector<uint8_t*> cue_starts;
+        std::vector<const uint8_t*> cue_starts;
         const uint32_t indent = 2;
 
         while (ParseStartBlock("cues", line)) {

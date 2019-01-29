@@ -214,6 +214,14 @@ bool MainComponent::keyPressed(const KeyPress &key)
     else if (key_code == KeyPress::homeKey) {
         queued_cue = -1;
     }
+    else if (key_code == '=' && key.getModifiers().isShiftDown()) {
+        if (playback_paused) {
+            mixer->AddMarker();
+        }
+    }
+    else if (key_code == KeyPress::returnKey && playback_paused) {
+        mixer->ResetToCue(mixer->Playing()->selected_marker);
+    }
     else if (key_code == 'M' && key.getModifiers().isShiftDown()) {
         modifier_mono = true;
     }

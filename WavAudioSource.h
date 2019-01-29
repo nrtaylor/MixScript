@@ -95,7 +95,7 @@ namespace MixScript
         std::unique_ptr<WaveAudioBuffer> buffer;        
         uint8_t* const audio_start;
         uint8_t* const audio_end;
-        std::vector<uint8_t*> cue_starts;
+        std::vector<const uint8_t*> cue_starts;
         MixerControl<GainParams> gain_control;
         uint32_t mix_duration;
         int selected_marker;
@@ -110,6 +110,7 @@ namespace MixScript
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
         const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
+        void AddMarker();
 
         ~WaveAudioSource();
 
@@ -189,6 +190,7 @@ namespace MixScript
         void UpdateGainValue(const float gain, const float interpolation_percent);
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
+        void AddMarker();
     private:
         WaveAudioSource& Selected();
         const WaveAudioSource& Selected() const;
