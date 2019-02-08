@@ -160,6 +160,11 @@ namespace MixScript
         source.last_read_pos = static_cast<int32_t>(source.read_pos - source.audio_start);
     }
 
+    void ResetToPos(WaveAudioSource& source, uint8_t const * const position) {
+        source.read_pos = position;
+        source.last_read_pos = static_cast<int32_t>(position - source.audio_start);
+    }
+
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
         WaveAudioSource& source = *source_.get();
 

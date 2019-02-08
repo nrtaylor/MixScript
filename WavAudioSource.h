@@ -108,6 +108,7 @@ namespace MixScript
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source, const uint32_t cue_id);
+    void ResetToPos(WaveAudioSource& source, uint8_t const * const position);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
     struct FloatOutputWriter {
@@ -186,8 +187,12 @@ namespace MixScript
     template void Mixer::Mix<PCMOutputWriter>(PCMOutputWriter& output_writer, int samples_to_read);
 
     struct TrackVisualCache {
+        struct Bounds {
+            int32_t x, y, w, h;
+        };
         std::atomic_int32_t zoom_factor;
         const uint8_t* scroll_offset;
+        Bounds draw_region;
         WavePeaks peaks;
         AmplitudeAutomation gain_automation;
 

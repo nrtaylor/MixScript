@@ -281,6 +281,37 @@ void MainComponent::mouseWheelMove(const MouseEvent& event, const MouseWheelDeta
     }
 }
 
+bool HandleMouseDown(const int mouse_x, const int mouse_y, MixScript::Mixer& mixer,
+    MixScript::TrackVisualCache& visuals, const int visuals_index) {
+    if (mouse_x >= visuals.draw_region.x &&
+        mouse_y >= visuals.draw_region.y &&
+        mouse_x <= visuals.draw_region.x + visuals.draw_region.w &&
+        mouse_y <= visuals.draw_region.y + visuals.draw_region.h) {
+        if (mixer.selected_track != visuals_index) {
+            mixer.selected_track = visuals_index;
+        }
+        else {
+            const int offset = mouse_x - visuals.draw_region.x;
+            const float samples_per_pixel = visuals.SamplesPerPixel(mixer.Selected());
+            const auto& format = mixer.Selected().format;
+            const int click_offset = (uint32_t)(samples_per_pixel * offset) * format.channels * format.bit_rate / 8;
+            MixScript::ResetToPos(mixer.Selected(), visuals.scroll_offset + click_offset);            
+        }
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::mouseDown(const MouseEvent &event)
+{
+    const int mouse_x = event.getMouseDownX();
+    const int mouse_y = event.getMouseDownY();
+
+    if (!HandleMouseDown(mouse_x, mouse_y, *mixer.get(), *track_incoming_visuals.get(), 1)) {
+        HandleMouseDown(mouse_x, mouse_y, *mixer.get(), *track_playing_visuals.get(), 0);
+    }
+}
+
 void MainComponent::SaveProject() {
     const bool paused_state = playback_paused.load();
     playback_paused = true;
@@ -368,7 +399,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     audio_file_form.reduce(12, 12);
     juce::Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
-    const Colour colour = selected ? Colour::fromRGB(0, 0, 0x88) : Colour::fromRGB(0x33, 0x33, 0x66);
+    const Colour colour = selected ? Colour::fromRGB(0, 0, 0xAA) : Colour::fromRGB(0x33, 0x33, 0x66);
 
     g.setColour(colour);
     g.drawRect(audio_file_form);
@@ -378,11 +409,13 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     const uint32 wave_height = audio_file_form.getHeight();
     if (peaks.dirty || peaks.peaks.size() != wave_width) {
         track_visuals->scroll_offset = MixScript::ComputeWavePeaks(*source, wave_width, peaks, track_visuals->zoom_factor);
+        track_visuals->draw_region = { audio_file_form.getPosition().x, audio_file_form.getPosition().y,
+            static_cast<int32_t>(wave_width), static_cast<int32_t>(wave_height) };
         automation.dirty = true; // TODO: clean-up
         peaks.dirty = false;
     }
 
-    g.setColour(Colour::fromRGB(0x77, 0x77, 0xAA));
+    g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
 
     // peaks
     {
