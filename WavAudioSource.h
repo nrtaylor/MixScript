@@ -90,6 +90,7 @@ namespace MixScript
         const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
         void AddMarker();
+        void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
         ~WaveAudioSource();
@@ -174,6 +175,7 @@ namespace MixScript
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
         void AddMarker();
+        void DeleteMarker();
     private:
 
         std::unique_ptr<WaveAudioSource> playing;

@@ -226,7 +226,17 @@ bool MainComponent::keyPressed(const KeyPress &key)
     }
     else if (key_code == '=' && key.getModifiers().isShiftDown()) {
         if (playback_paused) {
-            mixer->AddMarker();
+            if (key.isKeyCurrentlyDown('A')) {
+                mixer->AddMarker();
+            }
+            else {
+                mixer->Selected().AddMarker();
+            }
+        }
+    }
+    else if (key_code == KeyPress::deleteKey) {
+        if (playback_paused) {
+            mixer->Selected().DeleteMarker();
         }
     }
     else if (key_code == KeyPress::returnKey && playback_paused) {

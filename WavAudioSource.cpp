@@ -84,7 +84,19 @@ namespace MixScript
                 break;
             }
         }
-        cue_starts.insert(it, read_pos);
+        it = cue_starts.insert(it, read_pos);
+        selected_marker = 1 + (it - cue_starts.begin());
+    }
+
+    void WaveAudioSource::DeleteMarker() {
+        if (selected_marker <= 0) {
+            return;
+        }
+        const int selected_marker_index = selected_marker - 1;
+        cue_starts.erase(cue_starts.begin() + selected_marker_index);
+        if (selected_marker_index >= cue_starts.size()) {
+            --selected_marker;
+        }
     }
 
     void WaveAudioSource::TryWrap() {
@@ -279,6 +291,11 @@ namespace MixScript
     void Mixer::AddMarker() {
         playing->AddMarker();
         incoming->AddMarker();
+    }
+
+    void Mixer::DeleteMarker() {
+        playing->DeleteMarker();
+        incoming->DeleteMarker();
     }
 
     void Mixer::SetMixSync() {
