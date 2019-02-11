@@ -47,6 +47,7 @@ public:
     void paint (Graphics& g) override;
     void resized() override;
     
+    void LoadControls();
 private:
     //==============================================================================
     // Your private member variables go here...
@@ -73,9 +74,7 @@ private:
     void ExportRender();
     void SaveProject();
     void LoadProject();
-
-    void LoadControls();
-
+    
     void timerCallback() override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)

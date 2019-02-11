@@ -281,7 +281,7 @@ void MainComponent::mouseWheelMove(const MouseEvent& event, const MouseWheelDeta
     }
 }
 
-bool HandleMouseDown(const int mouse_x, const int mouse_y, MixScript::Mixer& mixer,
+bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, MixScript::Mixer& mixer,
     MixScript::TrackVisualCache& visuals, const int visuals_index) {
     if (mouse_x >= visuals.draw_region.x &&
         mouse_y >= visuals.draw_region.y &&
@@ -289,13 +289,19 @@ bool HandleMouseDown(const int mouse_x, const int mouse_y, MixScript::Mixer& mix
         mouse_y <= visuals.draw_region.y + visuals.draw_region.h) {
         if (mixer.selected_track != visuals_index) {
             mixer.selected_track = visuals_index;
+            mc->LoadControls();
         }
         else {
             const int offset = mouse_x - visuals.draw_region.x;
             const float samples_per_pixel = visuals.SamplesPerPixel(mixer.Selected());
             const auto& format = mixer.Selected().format;
             const int click_offset = (uint32_t)(samples_per_pixel * offset) * format.channels * format.bit_rate / 8;
-            MixScript::ResetToPos(mixer.Selected(), visuals.scroll_offset + click_offset);            
+            uint8_t const * const position = visuals.scroll_offset + click_offset;
+            MixScript::ResetToPos(mixer.Selected(), position);
+            if (MixScript::TrySelectMarker(mixer.Selected(), position,
+                2 * samples_per_pixel * format.channels * format.bit_rate / 8)) {
+                mc->LoadControls();
+            }
         }
         return true;
     }
@@ -307,8 +313,8 @@ void MainComponent::mouseDown(const MouseEvent &event)
     const int mouse_x = event.getMouseDownX();
     const int mouse_y = event.getMouseDownY();
 
-    if (!HandleMouseDown(mouse_x, mouse_y, *mixer.get(), *track_incoming_visuals.get(), 1)) {
-        HandleMouseDown(mouse_x, mouse_y, *mixer.get(), *track_playing_visuals.get(), 0);
+    if (!HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_incoming_visuals.get(), 1)) {
+        HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_playing_visuals.get(), 0);
     }
 }
 

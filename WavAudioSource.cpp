@@ -165,6 +165,18 @@ namespace MixScript
         source.last_read_pos = static_cast<int32_t>(position - source.audio_start);
     }
 
+    bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance) {
+        int index = 0;
+        for (uint8_t const * const cue : source.cue_starts) {            
+            if (abs(static_cast<int>(cue - position)) <= tolerance) {
+                source.selected_marker = index + 1;
+                return true;
+            }
+            ++index;
+        }
+        return false;
+    }
+
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
         WaveAudioSource& source = *source_.get();
 

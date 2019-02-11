@@ -109,6 +109,7 @@ namespace MixScript
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source, const uint32_t cue_id);
     void ResetToPos(WaveAudioSource& source, uint8_t const * const position);
+    bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
     struct FloatOutputWriter {
