@@ -494,8 +494,12 @@ void MainComponent::paint (Graphics& g)
 
     // You can add your drawing code here!
     const juce::Rectangle<int> bounds = g.getClipBounds();
-    juce::Rectangle<int> audio_file = bounds;
     const int track_height = 160;
+    // Make sure window is not in a strange state.
+    if (bounds.getHeight() < track_height * 2 || bounds.getWidth() < 300) {
+        return;
+    }
+    juce::Rectangle<int> audio_file = bounds;
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),
             mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);

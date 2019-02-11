@@ -27,7 +27,7 @@ namespace nMath {
 namespace MixScript
 {
     const uint32_t kMaxAudioEsimatedDuration = 10 * 60; // minutes
-    const uint32_t kMaxAudioBufferSize = kMaxAudioEsimatedDuration * 48000 * 2 + 1024; // sample rate * channels
+    const uint32_t kMaxAudioBufferSize = kMaxAudioEsimatedDuration * 48000 * 2 * 2 + 1024; // sample rate * byte_rate * channels
 
     struct WaveAudioBuffer {
         uint8_t* const samples;
