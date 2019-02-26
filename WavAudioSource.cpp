@@ -38,6 +38,10 @@ namespace MixScript
         }
     };
 
+    uint32_t ByteRate(const WaveAudioFormat& format) {
+        return format.bit_rate / 8;
+    }
+
     float WaveAudioSource::Read() {
         const int32_t next = (int32_t)((*(const uint32_t*)read_pos) << 16);
         read_pos += 2;
@@ -63,8 +67,10 @@ namespace MixScript
         if (selected_marker <= 0) {
             return;
         }
-        const int selected_marker_index = selected_marker - 1;
-        cue_starts[selected_marker_index] += num_samples;
+        const int32_t alignment = format.channels * ByteRate(format);
+        const int32_t num_bytes = num_samples * alignment;
+        const int selected_marker_index = selected_marker - 1;        
+        cue_starts[selected_marker_index] += num_bytes;
         if (selected_marker_index > 0 &&
             cue_starts[selected_marker_index - 1] > cue_starts[selected_marker_index]) {
             std::swap(cue_starts[selected_marker_index - 1], cue_starts[selected_marker_index]);
@@ -78,12 +84,13 @@ namespace MixScript
     }
 
     void WaveAudioSource::AddMarker() {
+        assert((read_pos - audio_start) % 4 == 0);
         auto it = cue_starts.begin();
         for (; it != cue_starts.end(); ++it) {
             if (*it > read_pos) {
                 break;
             }
-        }
+        }        
         it = cue_starts.insert(it, read_pos);
         selected_marker = 1 + (it - cue_starts.begin());
     }
@@ -158,11 +165,13 @@ namespace MixScript
             source.read_pos = source.cue_starts[cue_id - 1];
         }
         source.last_read_pos = static_cast<int32_t>(source.read_pos - source.audio_start);
+        assert(source.last_read_pos.load() % 4 == 0);
     }
 
     void ResetToPos(WaveAudioSource& source, uint8_t const * const position) {
         source.read_pos = position;
         source.last_read_pos = static_cast<int32_t>(position - source.audio_start);
+        assert(source.last_read_pos.load() % 4 == 0);
     }
 
     bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance) {
@@ -401,9 +410,8 @@ namespace MixScript
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts[mix_sync.playing_cue_id - 1];
+        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1] : playing_.audio_start;
         const float inv_duration = 1.f / playing_.mix_duration;
-        const float inv_cue_size = 1.f / playing_.cue_starts.size();
         float left = 0;
         float right = 0;
         const bool make_mono = modifier_mono;
@@ -745,11 +753,7 @@ namespace MixScript
 
         return false;
     }
-
-    uint32_t ByteRate(const WaveAudioFormat& format) {
-        return format.bit_rate / 8;
-    }
-
+    
     const uint8_t* ZoomScrollOffsetPos(const WaveAudioSource& source, uint8_t const * const cursor_pos,
         const uint32_t pixel_width, const float zoom_amount) {
         const uint8_t* read_pos = source.audio_start;        
