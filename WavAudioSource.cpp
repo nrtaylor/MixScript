@@ -810,6 +810,7 @@ namespace MixScript
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
+            peak.start = read_pos;
             // TODO: Handle float to int
             int i = 0;
             if (remainder >= 1.f) {
@@ -829,6 +830,7 @@ namespace MixScript
                 }
             }
             remainder += remainder_amount;
+            peak.end = read_pos;
         }
         return scroll_offset;
     }

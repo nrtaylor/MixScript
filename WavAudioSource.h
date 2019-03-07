@@ -51,6 +51,8 @@ namespace MixScript
         struct WavePeak {
             float min;
             float max;
+            const uint8_t * start;
+            const uint8_t * end;
         };
         std::atomic_bool dirty;
         std::vector<WavePeak> peaks;

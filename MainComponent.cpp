@@ -422,14 +422,39 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     }
 
     g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
-
+    g.setFont(10);
     // peaks
     {
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
+        g.fillRect(x, y + wave_height / 2, wave_width, 1);
+        int cue_index = 0;
+        uint8_t const * const cursor_offset = source->audio_start + source->last_read_pos;
         for (const MixScript::WavePeaks::WavePeak& peak : peaks.peaks) {
             const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
+            while (cue_index < source->cue_starts.size() && source->cue_starts[cue_index] < peak.end) {                
+                if (source->cue_starts[cue_index] >= peak.start) {
+                    g.setColour(colour);                    
+                    const int pixel_pos = x - 1;
+                    int cue_id = cue_index + 1;
+                    g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1, audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
+                    const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
+                    const juce::Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
+                    g.drawText(cue_label, label_rect, juce::Justification::centred);
+                    if (source->selected_marker == cue_id) {
+                        g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
+                    }
+                    g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
+                }
+                ++cue_index;
+            }
+            if (cursor_offset >= peak.start && cursor_offset < peak.end) {
+                g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));                
+                g.fillRect(x - 1, audio_file_form.getTopLeft().y, 1,
+                    audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
+                g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
+            }
         }
     }
 
@@ -452,37 +477,6 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
             g.fillRect(x++, y + offset_y, 1, 1);
             previous_y = offset_y;
         }
-    }
-
-    g.setColour(colour);
-
-    g.setFont(10);
-    uint8_t const * const audio_start = track_visuals->scroll_offset;
-    const float zoom_amount = track_visuals->zoom_factor > 0 ? powf(2, track_visuals->zoom_factor) : 1.f;
-    const float inv_duration = zoom_amount / (float)(source->audio_end - source->audio_start);
-    int cue_id = 1;
-    for (const uint8_t* cue_pos : source->cue_starts) {
-        if (cue_pos < audio_start) {
-            ++cue_id;
-            continue;
-        }
-        const float ratio = (cue_pos - audio_start) * inv_duration;
-        const int pixel_pos = static_cast<int>(ratio * wave_width) + audio_file_form.getPosition().x;
-        g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1, audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
-        const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
-        const juce::Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
-        g.drawText(cue_label, label_rect, juce::Justification::centred);
-        if (source->selected_marker == cue_id) {
-            g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
-        }
-        ++cue_id;
-    }
-    g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
-    const float play_pos_ratio = (source->last_read_pos - (track_visuals->scroll_offset - source->audio_start)) * inv_duration;
-    if (play_pos_ratio < 1.f) {
-        const int play_pos = static_cast<int>(play_pos_ratio * wave_width) + audio_file_form.getPosition().x;
-        g.fillRect(play_pos, audio_file_form.getTopLeft().y, 1,
-            audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
     }
 }
 
