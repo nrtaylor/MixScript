@@ -247,13 +247,18 @@ namespace MixScript
 
     void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass) {
         WaveAudioSource& source = Selected();
-        source.gain_control.bypass = bypass;
+        if (source.gain_control.bypass != bypass) {
+            source.gain_control.bypass = bypass;
+            return;
+        }        
         const int cue_id = source.selected_marker;
         if (cue_id > 0) {
             uint8_t const * const marker_pos = source.cue_starts[cue_id - 1];
             int gain_cue_id = 0;
             bool found = false;
             for (Movement<GainParams>& movement : source.gain_control.movements) {
+                // TODO: Decide if it is easier to separate automation points from cues, or if
+                // automation and cues should stay in sync.
                 if (movement.cue_pos == marker_pos) {
                     movement.params.gain = gain;
                     movement.threshold_percent = interpolation_percent;
@@ -437,7 +442,7 @@ namespace MixScript
                 MixScript::ResetToCue(playing, (uint32_t)((int32_t)cue_id + mix_sync.Reverse()));
             }
             if (make_mono) {
-                left = 0.5f * (left + right);
+                left = 0.707f * (left + right);
                 right = left;
             }
             output_writer.WriteLeft(left);
@@ -790,7 +795,8 @@ namespace MixScript
         const uint32_t bytes_per_pixel = (uint32_t)(zoom_amount * delta / (float)pixel_width);
 
         automation.values.resize(pixel_width);
-        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);
+        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos,
+            pixel_width, zoom_amount);
         for (float& value : automation.values) {
             value = source.gain_control.Apply(read_pos, 1.f);
             read_pos += bytes_per_pixel;
@@ -805,7 +811,8 @@ namespace MixScript
         const float samples_per_pixel = sample_count / (float) pixel_width;
 
         peaks.peaks.resize(pixel_width);
-        uint8_t const * const scroll_offset = ZoomScrollOffsetPos(source, source.SelectedMarkerPos(), pixel_width, zoom_amount);
+        uint8_t const * const scroll_offset = ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos,
+            pixel_width, zoom_amount);
         const uint8_t* read_pos = scroll_offset;
         float remainder = 0.f;
         const float remainder_amount = samples_per_pixel - floorf(samples_per_pixel);
