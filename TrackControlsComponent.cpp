@@ -4,9 +4,12 @@
 TrackControlsComponent::TrackControlsComponent() {
     auto value_changed_func = [this] { HandleValueChanged(sendNotification); };
 
-    const int slider_width = 212;
+    bypass.onStateChange = value_changed_func;
+    bypass.setBounds(4, 0, 21, 21);
+    addAndMakeVisible(&bypass);    
 
-    slider_gain.setBounds(4, 0, slider_width, 22);
+    const int slider_width = 212;
+    slider_gain.setBounds(4 + 22, 0, slider_width, 22);
     slider_gain.setRange(0.0, 1.0, 0.01);
     slider_gain.setTextValueSuffix(" Gain");
     slider_gain.setValue(1.0);
@@ -14,7 +17,7 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain.setWantsKeyboardFocus(true); 
     addAndMakeVisible(&slider_gain);
 
-    slider_gain_threshold.setBounds(4 + slider_width, 0, slider_width, 22);
+    slider_gain_threshold.setBounds(4 + 22 + slider_width, 0, slider_width, 22);
     slider_gain_threshold.setRange(0.0, 1.0, 0.01);
     slider_gain_threshold.setTextValueSuffix(" %");
     slider_gain_threshold.setValue(0.0);
@@ -22,7 +25,7 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain_threshold.setWantsKeyboardFocus(true);
     addAndMakeVisible(&slider_gain_threshold);
 
-    setSize(2 * (slider_width + 4), 88);
+    setSize(bypass.getWidth() + 2 * (slider_width + 4), 88);
 
     HandleValueChanged(dontSendNotification);
 }
@@ -31,15 +34,17 @@ void TrackControlsComponent::Focus() {
     slider_gain.showTextBox();
 }
 
-void TrackControlsComponent::LoadControls(const float _gain, const float _interpolation_percent,
+void TrackControlsComponent::LoadControls(const float _gain, const float _interpolation_percent, const bool _bypass,
     const NotificationType notification) {
     slider_gain.setValue(_gain, notification);
     slider_gain_threshold.setValue(_interpolation_percent, notification);
+    bypass.setToggleState(_bypass, notification);
 }
 
 void TrackControlsComponent::HandleValueChanged(const NotificationType notification) {
     if (on_coefficient_changed != nullptr &&
         notification != dontSendNotification) {
-        on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue());
+        on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue(),
+            bypass.getToggleState());
     }
 }

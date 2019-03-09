@@ -245,8 +245,9 @@ namespace MixScript
         return gain;
     }
 
-    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent) {
+    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass) {
         WaveAudioSource& source = Selected();
+        source.gain_control.bypass = bypass;
         const int cue_id = source.selected_marker;
         if (cue_id > 0) {
             uint8_t const * const marker_pos = source.cue_starts[cue_id - 1];
@@ -362,7 +363,8 @@ namespace MixScript
 
     template<typename Params>
     float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) const {
-        if (movements.empty()) {
+        if (movements.empty() ||
+            bypass) {
             return sample;
         }
         int interval = movements.size();        

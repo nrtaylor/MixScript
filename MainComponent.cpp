@@ -73,9 +73,9 @@ MainComponent::MainComponent() :
 
     playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
     addAndMakeVisible(&playing_controls);
-    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent)
+    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent, const bool bypass)
     {
-        mixer->UpdateGainValue(gain, interpolation_percent);
+        mixer->UpdateGainValue(gain, interpolation_percent, bypass);
         SelectedVisuals()->gain_automation.dirty = true;
     };
 
@@ -151,7 +151,8 @@ void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
     float interpolation_percent = 0.f;
     const float gain_amount = mixer->GainValue(interpolation_percent);
-    playing_controls.LoadControls(gain_amount, interpolation_percent, juce::NotificationType::dontSendNotification);
+    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().gain_control.bypass,
+        juce::NotificationType::dontSendNotification);
     SelectedVisuals()->peaks.dirty = true;
 }
 

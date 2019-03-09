@@ -17,7 +17,7 @@ namespace MixScript
     };
 
     struct GainParams {
-        float gain;
+        float gain;        
 
         float Apply(const float sample) const {
             return sample * gain;
@@ -42,6 +42,9 @@ namespace MixScript
     template<typename Params>
     struct MixerControl {        
         std::vector<Movement<Params> > movements;
+        bool bypass;
+
+        MixerControl() : bypass(false) {}
 
         Movement<Params>& Add(Params&& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
@@ -175,7 +178,7 @@ namespace MixScript
         int MarkerRight() const;
 
         void SetSelectedMarker(int cue_id);
-        void UpdateGainValue(const float gain, const float interpolation_percent);
+        void UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass);
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
         void AddMarker();

@@ -8,10 +8,11 @@ class TrackControlsComponent : public Component
 public:
     TrackControlsComponent();
 
-    void LoadControls(const float _gain, const float _interpolation_percent,
+    void LoadControls(const float _gain, const float _interpolation_percent, const bool _bypass,
         const NotificationType notification);
 
-    std::function<void(const float cuttoff_frequency, const float interpolation_percent)> on_coefficient_changed;
+    std::function<void(const float cuttoff_frequency, const float interpolation_percent,
+        const bool bypass)> on_coefficient_changed;
 
     void Focus();
 private:
@@ -19,5 +20,6 @@ private:
 
     Slider slider_gain;
     Slider slider_gain_threshold;
+    ToggleButton bypass;
     // ComboBox interp
 };
