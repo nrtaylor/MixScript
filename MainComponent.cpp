@@ -371,6 +371,7 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
         menu.addItem(1, "Save");
         menu.addItem(2, "Load");
         menu.addItem(3, "Export");
+        menu.addItem(4, "Set Sync (S)");
     }
 
     return menu;
@@ -387,6 +388,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         break;
     case 3:
         ExportRender();
+        break;
+    case 4:
+        mixer->SetMixSync();
         break;
     default:
         break;
