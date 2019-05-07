@@ -42,7 +42,8 @@ MainComponent::MainComponent() :
             const File& file = chooser.getResult();
             mixer->LoadPlayingFromFile(file.getFullPathName().toRawUTF8());
             // TODO: monitor from project
-            label_loadfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+            label_loadfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);            
+            track_playing_visuals.get()->peaks.dirty = true;
 
             playback_paused = paused_state;
         }
@@ -63,6 +64,7 @@ MainComponent::MainComponent() :
             const File& file = chooser.getResult();
             mixer->LoadIncomingFromFile(file.getFullPathName().toRawUTF8());
             label_outfile.setText(file.getFileNameWithoutExtension(), dontSendNotification);
+            track_incoming_visuals.get()->peaks.dirty = true;
 
             playback_paused = paused_state; // TODO: Scoped pause
         }
@@ -300,7 +302,7 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             mixer.selected_track = visuals_index;
             mc->LoadControls();
         }
-        else {
+        else if (!visuals.peaks.dirty) {
             const int offset = mouse_x - visuals.draw_region.x;
             const float samples_per_pixel = visuals.SamplesPerPixel(mixer.Selected());
             const auto& format = mixer.Selected().format;
