@@ -816,6 +816,8 @@ namespace MixScript
         const uint8_t* read_pos = scroll_offset;
         float remainder = 0.f;
         const float remainder_amount = samples_per_pixel - floorf(samples_per_pixel);
+        int channel = 0;
+        
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
@@ -829,8 +831,9 @@ namespace MixScript
                     peak.max = peak.min = 0.f;
                 }
             }
-            for (; i < samples_per_pixel; ++i) {
-                const float sample = source.Read(&read_pos);
+            for (; i < samples_per_pixel; ++i, ++channel) {                
+                DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
+                const float sample = active_filter.Compute(source.Read(&read_pos));
                 if (sample > peak.max) {
                     peak.max = sample;
                 }

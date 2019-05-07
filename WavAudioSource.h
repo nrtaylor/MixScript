@@ -2,6 +2,7 @@
 // Author - Nic Taylor
 
 #pragma once
+#include <array>
 #include <vector>
 #include <atomic>
 #include <memory>
@@ -9,6 +10,17 @@
 namespace MixScript
 {
     struct WaveAudioBuffer;
+
+    struct DerivativeFilter {
+        DerivativeFilter() : y(0.f), bypass(false) {}
+        float y;
+        bool bypass;
+        float Compute(const float x) {
+            const float sample = x - y;
+            y = x;
+            return !bypass ? sample : x;
+        }
+    };
 
     struct WaveAudioFormat {
         uint32_t channels;
@@ -60,8 +72,19 @@ namespace MixScript
         std::atomic_bool dirty;
         std::vector<WavePeak> peaks;
 
-        WavePeaks() {
-            dirty = false;
+        static constexpr int kMaxChannels = 8;
+        std::array<DerivativeFilter, kMaxChannels> filters;
+
+        WavePeaks() {            
+            SetFilterBypass(true);
+            dirty = false; // Set last
+        }
+
+        void SetFilterBypass(const bool bypass) {
+            for (DerivativeFilter& filter : filters) {
+                filter.bypass = bypass;
+            }
+            dirty = true;
         }
     };
 

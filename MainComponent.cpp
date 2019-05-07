@@ -71,6 +71,14 @@ MainComponent::MainComponent() :
     label_outfile.setText("[None]", dontSendNotification);
     addAndMakeVisible(label_outfile);
 
+    visual_accentuate.setButtonText("Accentuate Transients");
+    visual_accentuate.onClick = [this]() {
+        track_playing_visuals.get()->peaks.SetFilterBypass(!visual_accentuate.getToggleState());
+        track_incoming_visuals.get()->peaks.SetFilterBypass(!visual_accentuate.getToggleState());
+    };
+    addAndMakeVisible(visual_accentuate);
+
+
     playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
     addAndMakeVisible(&playing_controls);
     playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent, const bool bypass)
@@ -529,6 +537,8 @@ void MainComponent::resized()
     juce::Rectangle<int> row_load = row_next();
     button_loadfile.setBounds(row_load.removeFromLeft(36));
     label_loadfile.setBounds(row_load.removeFromLeft(350));
+
+    visual_accentuate.setBounds(row_load.removeFromRight(120));
 
     juce::Rectangle<int> row_out = row_next();
     button_outfile.setBounds(row_out.removeFromLeft(36));

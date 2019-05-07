@@ -67,6 +67,8 @@ private:
     TextButton button_outfile;
     Label label_outfile;
 
+    ToggleButton visual_accentuate;
+
     TrackControlsComponent playing_controls;
 
     MenuBarComponent menuBar;
