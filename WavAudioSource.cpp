@@ -779,11 +779,11 @@ namespace MixScript
         return read_pos;
     }
 
-    uint32_t TrackVisualCache::SamplesPerPixel(const WaveAudioSource& source) const {
+    float TrackVisualCache::SamplesPerPixel(const WaveAudioSource& source) const {
         const int32_t pixel_width = static_cast<int32_t>(peaks.peaks.size());
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = (source.audio_end - source.audio_start)/(ByteRate(source.format) * source.format.channels);
-        const uint32_t samples_per_pixel = (uint32_t)(zoom_amount * delta / (float)pixel_width);
+        const float samples_per_pixel = zoom_amount * delta / (float)pixel_width;
 
         return samples_per_pixel;
     }
@@ -808,7 +808,7 @@ namespace MixScript
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
         const uint32_t sample_count = zoom_amount * delta / ByteRate(source.format);
-        const float samples_per_pixel = sample_count / (float) pixel_width;
+        const float samples_per_pixel = sample_count / (float) (pixel_width * source.format.channels);
 
         peaks.peaks.resize(pixel_width);
         uint8_t const * const scroll_offset = ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos,
@@ -817,6 +817,7 @@ namespace MixScript
         float remainder = 0.f;
         const float remainder_amount = samples_per_pixel - floorf(samples_per_pixel);
         int channel = 0;
+        const int spp = static_cast<int>(samples_per_pixel);
         
         for (WavePeaks::WavePeak& peak : peaks.peaks) {
             peak.max = -FLT_MAX;
@@ -826,19 +827,21 @@ namespace MixScript
             int i = 0;
             if (remainder >= 1.f) {
                 remainder -= 1.f;
-                ++i;
+                --i;
                 if (samples_per_pixel < 1.f) {
                     peak.max = peak.min = 0.f;
                 }
             }
-            for (; i < samples_per_pixel; ++i, ++channel) {                
-                DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
-                const float sample = active_filter.Compute(source.Read(&read_pos));
-                if (sample > peak.max) {
-                    peak.max = sample;
-                }
-                if (sample < peak.min) {
-                    peak.min = sample;
+            for (; i < spp; ++i, ++channel) {
+                for (int c = 0; c < source.format.channels; ++c) {
+                    DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
+                    const float sample = active_filter.Compute(source.Read(&read_pos));
+                    if (sample > peak.max) {
+                        peak.max = sample;
+                    }
+                    if (sample < peak.min) {
+                        peak.min = sample;
+                    }
                 }
             }
             remainder += remainder_amount;

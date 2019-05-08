@@ -227,7 +227,7 @@ namespace MixScript
 
         TrackVisualCache() : zoom_factor(0), scroll_offset(nullptr) {}
 
-        uint32_t SamplesPerPixel(const WaveAudioSource& source) const;
+        float SamplesPerPixel(const WaveAudioSource& source) const;
 
         void ChangeZoom(const int delta) {
             if (delta < 0 && zoom_factor <= 0) {

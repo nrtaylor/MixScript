@@ -206,7 +206,8 @@ bool MainComponent::keyPressed(const KeyPress &key)
                 refresh_controls = true;
             }
             else {
-                const uint32 samples_per_pixel = SelectedVisuals()->SamplesPerPixel(mixer->Selected());
+                const uint32 samples_per_pixel = static_cast<uint32>(
+                    SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
                 mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? -samples_per_pixel : -1);
             }
         }
@@ -218,7 +219,8 @@ bool MainComponent::keyPressed(const KeyPress &key)
                 refresh_controls = true;
             }
             else {
-                const uint32 samples_per_pixel = SelectedVisuals()->SamplesPerPixel(mixer->Selected());
+                const uint32 samples_per_pixel = static_cast<uint32>(
+                    SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
                 mixer->Selected().MoveSelectedMarker(samples_per_pixel > 0 ? samples_per_pixel : 1);
             }
         }
