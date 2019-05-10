@@ -70,15 +70,15 @@ namespace MixScript
         const int32_t alignment = format.channels * ByteRate(format);
         const int32_t num_bytes = num_samples * alignment;
         const int selected_marker_index = selected_marker - 1;        
-        cue_starts[selected_marker_index] += num_bytes;
+        cue_starts[selected_marker_index].start += num_bytes;
         if (selected_marker_index > 0 &&
-            cue_starts[selected_marker_index - 1] > cue_starts[selected_marker_index]) {
-            std::swap(cue_starts[selected_marker_index - 1], cue_starts[selected_marker_index]);
+            cue_starts[selected_marker_index - 1].start > cue_starts[selected_marker_index].start) {
+            std::swap(cue_starts[selected_marker_index - 1].start, cue_starts[selected_marker_index].start);
             --selected_marker;
         }
         else if (selected_marker_index < cue_starts.size() - 1 &&
-            cue_starts[selected_marker_index + 1] < cue_starts[selected_marker_index]) {
-            std::swap(cue_starts[selected_marker_index + 1], cue_starts[selected_marker_index]);
+            cue_starts[selected_marker_index + 1].start < cue_starts[selected_marker_index].start) {
+            std::swap(cue_starts[selected_marker_index + 1].start, cue_starts[selected_marker_index].start);
             ++selected_marker;
         }        
     }
@@ -87,11 +87,11 @@ namespace MixScript
         assert((read_pos - audio_start) % 4 == 0);
         auto it = cue_starts.begin();
         for (; it != cue_starts.end(); ++it) {
-            if (*it > read_pos) {
+            if ((*it).start > read_pos) {
                 break;
             }
-        }        
-        it = cue_starts.insert(it, read_pos);
+        }
+        it = cue_starts.insert(it, { read_pos, false });
         selected_marker = 1 + (it - cue_starts.begin());
     }
 
@@ -128,10 +128,10 @@ namespace MixScript
         last_read_pos = 0;
         write_pos = audio_start_pos_;
         for (const uint32_t cue_offset : cue_offsets) {
-            cue_starts.push_back(audio_start + 4*cue_offset);
+            cue_starts.push_back({ audio_start + 4 * cue_offset, true });
         }
         if (cue_starts.size() > 1) {
-            mix_duration = static_cast<decltype(mix_duration)>(cue_starts.back() - cue_starts.front());
+            mix_duration = static_cast<decltype(mix_duration)>(cue_starts.back().start - cue_starts.front().start);
             mix_duration /= format.channels;
         }
         else {
@@ -142,7 +142,8 @@ namespace MixScript
     // Returns true if on the cue
     bool WaveAudioSource::Cue(uint8_t const * const position, uint32_t& cue_id) const {
         cue_id = 0;
-        for (uint8_t const * const cue_pos : cue_starts) {
+        for (const MixScript::Cue& cue : cue_starts) {
+            uint8_t const * const cue_pos = cue.start;
             ++cue_id;
             if (cue_pos == position) {
                 return true;
@@ -162,7 +163,7 @@ namespace MixScript
             source.read_pos = source.audio_start;
         }
         else if (cue_id <= source.cue_starts.size()) {
-            source.read_pos = source.cue_starts[cue_id - 1];
+            source.read_pos = source.cue_starts[cue_id - 1].start;
         }
         source.last_read_pos = static_cast<int32_t>(source.read_pos - source.audio_start);
         assert(source.last_read_pos.load() % 4 == 0);
@@ -176,8 +177,8 @@ namespace MixScript
 
     bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance) {
         int index = 0;
-        for (uint8_t const * const cue : source.cue_starts) {            
-            if (abs(static_cast<int>(cue - position)) <= tolerance) {
+        for (const MixScript::Cue& cue : source.cue_starts) {                        
+            if (abs(static_cast<int>(cue.start - position)) <= tolerance) {
                 source.selected_marker = index + 1;
                 return true;
             }
@@ -227,7 +228,7 @@ namespace MixScript
         if (selected_marker <= 0) {
             return audio_start;
         }
-        return cue_starts[selected_marker - 1];
+        return cue_starts[selected_marker - 1].start;
     }
 
     float Mixer::GainValue(float& interpolation_percent) const {
@@ -253,7 +254,7 @@ namespace MixScript
         }        
         const int cue_id = source.selected_marker;
         if (cue_id > 0) {
-            uint8_t const * const marker_pos = source.cue_starts[cue_id - 1];
+            uint8_t const * const marker_pos = source.cue_starts[cue_id - 1].start;
             int gain_cue_id = 0;
             bool found = false;
             for (Movement<GainParams>& movement : source.gain_control.movements) {
@@ -417,7 +418,7 @@ namespace MixScript
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1] : playing_.audio_start;
+        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start : playing_.audio_start;
         const float inv_duration = 1.f / playing_.mix_duration;
         float left = 0;
         float right = 0;
@@ -461,7 +462,11 @@ namespace MixScript
 
     void SaveAudioSource(const WaveAudioSource* source, std::ofstream& fs) {
         fs << "audio_source {\n";
-        for (uint8_t const * const cue_pos : source->cue_starts) {
+        for (const MixScript::Cue& cue : source->cue_starts) {
+            if (cue.implied) {
+                continue;
+            }
+            uint8_t const * const cue_pos = cue.start;
             fs << "cues {\n";
             fs << "  pos: " << static_cast<int32_t>(cue_pos - source->audio_start) << "\n";
             fs << "}\n";
@@ -515,14 +520,14 @@ namespace MixScript
         ParseStartBlock("audio_source", line);
         std::getline(fs, line);
         std::string cue_pos;
-        std::vector<const uint8_t*> cue_starts;
+        std::vector<Cue> cue_starts;
         const uint32_t indent = 2;
 
         while (ParseStartBlock("cues", line)) {
             std::getline(fs, line);
             while (!ParseEndBlock(line)) {
                 ParseParam("pos", line, cue_pos, indent);
-                cue_starts.push_back(source.audio_start + std::stoi(cue_pos));
+                cue_starts.push_back({ source.audio_start + std::stoi(cue_pos), false });
                 std::getline(fs, line);
             }
             std::getline(fs, line);
@@ -570,9 +575,9 @@ namespace MixScript
 
     WaveAudioSource* Mixer::Render() {
         const uint32_t playing_size = playing->audio_end - playing->audio_start;
-        const uint32_t playing_offset = playing->cue_starts.front() - playing->audio_start;
+        const uint32_t playing_offset = playing->cue_starts.front().start - playing->audio_start;
 
-        const uint32_t incoming_size = incoming->audio_end - incoming->cue_starts.front();
+        const uint32_t incoming_size = incoming->audio_end - incoming->cue_starts.front().start;
 
         const uint32_t render_size = nMath::Max(playing_size, incoming_size + playing_offset);
 
@@ -823,7 +828,6 @@ namespace MixScript
             peak.max = -FLT_MAX;
             peak.min = FLT_MAX;
             peak.start = read_pos;
-            // TODO: Handle float to int
             int i = 0;
             if (remainder >= 1.f) {
                 remainder -= 1.f;
@@ -833,7 +837,7 @@ namespace MixScript
                 }
             }
             for (; i < spp; ++i, ++channel) {
-                for (int c = 0; c < source.format.channels; ++c) {
+                for (uint32_t c = 0; c < source.format.channels; ++c) {
                     DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
                     const float sample = active_filter.Compute(source.Read(&read_pos));
                     if (sample > peak.max) {

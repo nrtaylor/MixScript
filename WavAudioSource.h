@@ -96,13 +96,17 @@ namespace MixScript
             dirty = false;
         }
     };
+    struct Cue {
+        const uint8_t* start;
+        bool implied;
+    };
     struct WaveAudioSource {
         WaveAudioFormat format;
         std::string file_name;
         std::unique_ptr<WaveAudioBuffer> buffer;        
         uint8_t* const audio_start;
         uint8_t* const audio_end;
-        std::vector<const uint8_t*> cue_starts;
+        std::vector<Cue> cue_starts;
         MixerControl<GainParams> gain_control;
         uint32_t mix_duration;
         int selected_marker;
