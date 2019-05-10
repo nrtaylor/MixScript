@@ -349,6 +349,9 @@ void MainComponent::LoadProject() {
     if (chooser.browseForFileToOpen()) {
         const juce::File& file = chooser.getResult().withFileExtension(".mix");
         mixer->Load(file.getFullPathName().toRawUTF8());
+        // TODO: Sync visuals state better.
+        track_playing_visuals.get()->peaks.dirty = true;
+        track_incoming_visuals.get()->peaks.dirty = true;
     }
     playback_paused = paused_state;
 }
@@ -384,6 +387,7 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
         menu.addItem(2, "Load");
         menu.addItem(3, "Export");
         menu.addItem(4, "Set Sync (S)");
+        menu.addItem(5, "Generate Implied Markers");
     }
 
     return menu;
@@ -403,6 +407,14 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         break;
     case 4:
         mixer->SetMixSync();
+        break;
+    case 5:
+    {
+        const bool paused_state = playback_paused.load();
+        playback_paused = true;
+        mixer->GenerateImpliedMarkers();
+        playback_paused = paused_state;
+    }
         break;
     default:
         break;

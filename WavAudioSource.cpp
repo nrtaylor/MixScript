@@ -83,7 +83,7 @@ namespace MixScript
         }        
     }
 
-    void WaveAudioSource::AddMarker() {
+    void WaveAudioSource::AddMarker(const bool implied) {
         assert((read_pos - audio_start) % 4 == 0);
         auto it = cue_starts.begin();
         for (; it != cue_starts.end(); ++it) {
@@ -91,7 +91,7 @@ namespace MixScript
                 break;
             }
         }
-        it = cue_starts.insert(it, { read_pos, false });
+        it = cue_starts.insert(it, { read_pos, implied });
         selected_marker = 1 + (it - cue_starts.begin());
     }
 
@@ -329,6 +329,36 @@ namespace MixScript
     void Mixer::DeleteMarker() {
         playing->DeleteMarker();
         incoming->DeleteMarker();
+    }
+
+    void Mixer::ClearImpliedMarkers() {
+        WaveAudioSource& source = Selected();
+        auto& cues = source.cue_starts;
+        cues.erase(std::remove_if(cues.begin(), cues.end(), [](const MixScript::Cue& cue) {
+            return cue.implied;
+        }), cues.end());
+    }
+
+    void Mixer::GenerateImpliedMarkers() {
+        ClearImpliedMarkers();
+        WaveAudioSource& source = Selected();
+        const int cue_start = source.selected_marker;
+        if (cue_start <= 0) {
+            return;
+        }
+        const int cue_end = MarkerRight();
+        if (cue_end <= cue_start) {
+            return;
+        }
+        auto& cues = source.cue_starts;
+        const uint8_t* original_pos = source.read_pos;
+        source.read_pos = cues[cue_start].start;
+        const uint32_t delta = cues[cue_end - 1].start - cues[cue_start - 1].start;
+        while (source.read_pos < source.audio_end) {
+            source.read_pos += delta;
+            source.AddMarker(true);
+        }
+        source.read_pos = original_pos;
     }
 
     void Mixer::SetMixSync() {

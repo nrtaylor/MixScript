@@ -121,7 +121,7 @@ namespace MixScript
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
         const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
-        void AddMarker();
+        void AddMarker(const bool implied = false);
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
@@ -210,6 +210,8 @@ namespace MixScript
         void SetMixSync();
         void AddMarker();
         void DeleteMarker();
+        void ClearImpliedMarkers();
+        void GenerateImpliedMarkers();
     private:
 
         std::unique_ptr<WaveAudioSource> playing;
