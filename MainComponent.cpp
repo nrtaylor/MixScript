@@ -312,7 +312,7 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             uint8_t const * const position = visuals.scroll_offset + click_offset;
             MixScript::ResetToPos(mixer.Selected(), position);
             if (MixScript::TrySelectMarker(mixer.Selected(), position,
-                2 * samples_per_pixel * format.channels * format.bit_rate / 8)) {
+                static_cast<int>(2 * samples_per_pixel * format.channels * format.bit_rate / 8))) {
                 mc->LoadControls();
             }
         }

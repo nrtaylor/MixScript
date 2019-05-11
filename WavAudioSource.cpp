@@ -63,6 +63,23 @@ namespace MixScript
         write_pos += 2; // TODO: Byte rate
     }
 
+    void WaveAudioSource::CorrectImpliedMarkers() {
+        if (selected_marker <= 1) {
+            return;
+        }
+        uint8_t const * const start = cue_starts[0].start;
+        const int32_t delta = cue_starts[selected_marker - 1].start - start;
+        const float new_delta = static_cast<float>(delta) / (selected_marker - 1);
+        int index = 0;
+        for (MixScript::Cue& cue : cue_starts) {
+            if (int samples = static_cast<int>(index * new_delta)) {
+                samples &= ~(0x04 - 1);
+                cue.start = start + samples;
+            }
+            ++index;
+        }
+    }
+
     void WaveAudioSource::MoveSelectedMarker(const int32_t num_samples) {
         if (selected_marker <= 0) {
             return;
@@ -71,14 +88,17 @@ namespace MixScript
         const int32_t num_bytes = num_samples * alignment;
         const int selected_marker_index = selected_marker - 1;        
         cue_starts[selected_marker_index].start += num_bytes;
+        if (cue_starts[selected_marker_index].implied) {
+            CorrectImpliedMarkers();
+        }
         if (selected_marker_index > 0 &&
             cue_starts[selected_marker_index - 1].start > cue_starts[selected_marker_index].start) {
-            std::swap(cue_starts[selected_marker_index - 1].start, cue_starts[selected_marker_index].start);
+            std::swap(cue_starts[selected_marker_index - 1], cue_starts[selected_marker_index]);
             --selected_marker;
         }
         else if (selected_marker_index < cue_starts.size() - 1 &&
             cue_starts[selected_marker_index + 1].start < cue_starts[selected_marker_index].start) {
-            std::swap(cue_starts[selected_marker_index + 1].start, cue_starts[selected_marker_index].start);
+            std::swap(cue_starts[selected_marker_index + 1], cue_starts[selected_marker_index]);
             ++selected_marker;
         }        
     }
