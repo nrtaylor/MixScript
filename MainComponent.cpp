@@ -431,7 +431,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     MixScript::AmplitudeAutomation& automation = track_visuals->gain_automation;
 
     juce::Rectangle<int> audio_file_form = rect;
-    audio_file_form.reduce(12, 12);
+    audio_file_form.reduce(8, 8);
+    juce::Rectangle<int> info_bar = audio_file_form.removeFromBottom(12);
     juce::Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
     const Colour colour = selected ? Colour::fromRGB(0, 0, 0xAA) : Colour::fromRGB(0x33, 0x33, 0x66);
@@ -449,9 +450,15 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         automation.dirty = true; // TODO: clean-up
         peaks.dirty = false;
     }
+    
+    g.setFont(10);
+    if (source->bpm > 0.f) {
+        juce::Rectangle<int> bpm_rect = info_bar.removeFromRight(80);
+        const juce::String bpm_label = juce::String::formatted("bpm: %.4f", source->bpm);        
+        g.drawText(bpm_label, bpm_rect, juce::Justification::centred);
+    }
 
     g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
-    g.setFont(10);
     // peaks
     {
         int x = audio_file_form.getPosition().x;
@@ -467,9 +474,12 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                     g.setColour(colour);                    
                     const int pixel_pos = x - 1;
                     int cue_id = cue_index + 1;
-                    g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1, audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
+                    g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1,
+                        audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
                     const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
-                    const juce::Rectangle<float> label_rect(pixel_pos - 6, markers.getPosition().y + 1, 12, 10);
+                    const int label_width = cue_id > 99 ? 8 : 6;
+                    const juce::Rectangle<float> label_rect(pixel_pos - label_width, markers.getPosition().y + 1,
+                        label_width * 2, 10);
                     g.drawText(cue_label, label_rect, juce::Justification::centred);
                     if (source->selected_marker == cue_id) {
                         g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
@@ -517,7 +527,7 @@ void MainComponent::paint (Graphics& g)
 
     // You can add your drawing code here!
     const juce::Rectangle<int> bounds = g.getClipBounds();
-    const int track_height = 160;
+    const int track_height = 180;
     // Make sure window is not in a strange state.
     if (bounds.getHeight() < track_height * 2 || bounds.getWidth() < 300) {
         return;
@@ -527,7 +537,7 @@ void MainComponent::paint (Graphics& g)
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),
             mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);
     }
-    audio_file.removeFromBottom(8);
+    audio_file.removeFromBottom(2);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_playing, track_playing_visuals.get(),
             mixer->selected_track == 0, mixer->mix_sync.playing_cue_id);

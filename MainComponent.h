@@ -13,7 +13,7 @@
 #include <atomic>
 
 namespace MixScript {
-    struct Mixer;
+    class Mixer;
     struct TrackVisualCache;
 }
 

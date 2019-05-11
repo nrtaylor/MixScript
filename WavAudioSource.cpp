@@ -78,6 +78,8 @@ namespace MixScript
             }
             ++index;
         }
+        const float samples_per_beat = new_delta / (4 * format.channels * ByteRate(format));
+        bpm = 60.f * format.sample_rate / samples_per_beat;
     }
 
     void WaveAudioSource::MoveSelectedMarker(const int32_t num_samples) {
@@ -143,7 +145,8 @@ namespace MixScript
         buffer(buffer_),
         audio_start(audio_start_pos_),
         audio_end(audio_end_pos_),
-        selected_marker(-1) {
+        selected_marker(-1),
+        bpm(-1.f) {
         read_pos = audio_start_pos_;
         last_read_pos = 0;
         write_pos = audio_start_pos_;

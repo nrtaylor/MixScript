@@ -109,6 +109,7 @@ namespace MixScript
         std::vector<Cue> cue_starts;
         MixerControl<GainParams> gain_control;
         uint32_t mix_duration;
+        float bpm;
         int selected_marker;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
