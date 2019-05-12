@@ -831,13 +831,22 @@ namespace MixScript
             // TODO: Clean-up
             const uint32_t delta = source.audio_end - source.audio_start;
             const uint32_t marker_delta = cursor_pos - source.audio_start;
-            const float marker_ratio = marker_delta / (float)delta;
-            const float cursor_pixel = pixel_width * marker_ratio;
+            const float center_pixel = pixel_width * 0.5f;
             const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
-            const uint32_t cursor_screen_pos = cursor_pixel * bytes_per_pixel;
+            uint32_t cursor_screen_pos = center_pixel * bytes_per_pixel;
             const uint32_t cursor_alignment = cursor_screen_pos % (ByteRate(source.format) * source.format.channels);
-            const uint32_t offset = marker_delta - (cursor_screen_pos - cursor_alignment);
-            read_pos = read_pos + offset;
+            cursor_screen_pos -= cursor_alignment;
+            if (cursor_screen_pos < marker_delta) {
+                if (delta > marker_delta + cursor_screen_pos) {
+                    const uint32_t offset = marker_delta - cursor_screen_pos;
+                    read_pos = read_pos + offset;
+                }
+                else {
+                    const uint32_t bytes_pixel_width = 2 * cursor_screen_pos;
+                    const uint32_t offset = delta - bytes_pixel_width;
+                    read_pos = read_pos + offset;
+                }
+            }
         }
         return read_pos;
     }
