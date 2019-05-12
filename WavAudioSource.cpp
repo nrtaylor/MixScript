@@ -377,7 +377,12 @@ namespace MixScript
         const uint8_t* original_pos = source.read_pos;
         source.read_pos = cues[cue_start].start;
         const uint32_t delta = cues[cue_end - 1].start - cues[cue_start - 1].start;
-        while (source.read_pos < source.audio_end) {
+        while (source.read_pos - source.audio_start > delta) {
+            source.read_pos -= delta;
+            source.AddMarker(true);
+        }
+        source.read_pos = cues[cue_start].start;
+        while (source.audio_end - source.read_pos > delta) {
             source.read_pos += delta;
             source.AddMarker(true);
         }

@@ -436,6 +436,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     juce::Rectangle<int> markers = audio_file_form.removeFromBottom(12);
 
     const Colour colour = selected ? Colour::fromRGB(0, 0, 0xAA) : Colour::fromRGB(0x33, 0x33, 0x66);
+    const Colour background_color = Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77);
+    const Colour midground_colour = selected ? Colour::fromRGB(0x33, 0x33, 0x88) : Colour::fromRGB(0x33, 0x33, 0x55);
 
     g.setColour(colour);
     g.drawRect(audio_file_form);
@@ -458,7 +460,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         g.drawText(bpm_label, bpm_rect, juce::Justification::centred);
     }
 
-    g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
+    g.setColour(background_color);
     // peaks
     {
         int x = audio_file_form.getPosition().x;
@@ -471,7 +473,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
             while (cue_index < source->cue_starts.size() && source->cue_starts[cue_index].start < peak.end) {                
                 if (source->cue_starts[cue_index].start >= peak.start) {
-                    g.setColour(colour);                    
+                    g.setColour(cue_index % 16 != 0 ? midground_colour : colour);
                     const int pixel_pos = x - 1;
                     int cue_id = cue_index + 1;
                     g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1,
@@ -484,7 +486,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                     if (source->selected_marker == cue_id) {
                         g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
                     }
-                    g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
+                    g.setColour(background_color);
                 }
                 ++cue_index;
             }
@@ -492,7 +494,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                 g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));                
                 g.fillRect(x - 1, audio_file_form.getTopLeft().y, 1,
                     audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
-                g.setColour(Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77));
+                g.setColour(background_color);
             }
         }
     }
