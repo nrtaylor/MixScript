@@ -64,15 +64,23 @@ namespace MixScript
     }
 
     void WaveAudioSource::CorrectImpliedMarkers() {
-        if (selected_marker <= 1) {
+        int pivot_id = 0;
+        for (MixScript::Cue& cue : cue_starts) {
+            ++pivot_id;
+            if (!cue.implied) {
+                break;
+            }            
+        }
+        if (pivot_id == (int)cue_starts.size() || selected_marker == pivot_id) {
             return;
         }
-        uint8_t const * const start = cue_starts[0].start;
+        uint8_t const * const start = cue_starts[pivot_id - 1].start;
         const int32_t delta = cue_starts[selected_marker - 1].start - start;
-        const float new_delta = static_cast<float>(delta) / (selected_marker - 1);
+        const float new_delta = fabsf(static_cast<float>(delta) / (selected_marker - pivot_id));
+        const int pivot_index = pivot_id - 1;
         int index = 0;
         for (MixScript::Cue& cue : cue_starts) {
-            if (int samples = static_cast<int>(index * new_delta)) {
+            if (int samples = static_cast<int>((index - pivot_index) * new_delta)) {
                 samples &= ~(0x04 - 1);
                 cue.start = start + samples;
             }
@@ -374,14 +382,15 @@ namespace MixScript
             return;
         }
         auto& cues = source.cue_starts;
-        const uint8_t* original_pos = source.read_pos;
-        source.read_pos = cues[cue_start].start;
-        const uint32_t delta = cues[cue_end - 1].start - cues[cue_start - 1].start;
+        uint8_t const * const original_pos = source.read_pos;
+        source.read_pos = cues[cue_start - 1].start;
+        uint8_t const * const read_end_cue = cues[cue_end - 1].start;
+        const uint32_t delta = read_end_cue - cues[cue_start - 1].start;
         while (source.read_pos - source.audio_start > delta) {
             source.read_pos -= delta;
-            source.AddMarker(true);
+            source.AddMarker(true); // Will invalidate cue_start and cue_end
         }
-        source.read_pos = cues[cue_start].start;
+        source.read_pos = read_end_cue;
         while (source.audio_end - source.read_pos > delta) {
             source.read_pos += delta;
             source.AddMarker(true);

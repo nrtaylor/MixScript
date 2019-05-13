@@ -469,6 +469,11 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         int cue_index = 0;
         uint8_t const * const cursor_offset = source->audio_start + source->last_read_pos;
         for (const MixScript::WavePeaks::WavePeak& peak : peaks.peaks) {
+            if (peak.max < peak.min) {
+                // TODO: What causes this?
+                ++x;
+                continue;
+            }
             const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
             while (cue_index < source->cue_starts.size() && source->cue_starts[cue_index].start < peak.end) {                
