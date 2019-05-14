@@ -43,6 +43,9 @@ namespace MixScript
     }
 
     float WaveAudioSource::Read() {
+        if (read_pos >= audio_end) {
+            return 0.f;
+        }
         const int32_t next = (int32_t)((*(const uint32_t*)read_pos) << 16);
         read_pos += 2;
 
@@ -491,8 +494,6 @@ namespace MixScript
         float right = 0;
         const bool make_mono = modifier_mono;
         for (int32_t i = 0; i < samples_to_read; ++i) {
-            playing_.TryWrap();
-            incoming_.TryWrap();
             uint32_t cue_id = 0;
             uint8_t const * const playing_read_pos = playing_.read_pos;
             bool on_cue = playing_.Cue(playing_read_pos, cue_id) && cue_id >= mix_sync.playing_cue_id;
