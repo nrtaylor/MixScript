@@ -72,6 +72,8 @@ private:
     TrackControlsComponent playing_controls;
 
     MenuBarComponent menuBar;
+    PopupMenu menuMarkerType;
+
 
     void ExportRender();
     void SaveProject();

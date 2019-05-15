@@ -87,7 +87,7 @@ MainComponent::MainComponent() :
     {
         mixer->UpdateGainValue(gain, interpolation_percent, bypass);
         SelectedVisuals()->gain_automation.dirty = true;
-    };
+    };    
 
     // Make sure you set the size of the component after
     // you add any child components.
@@ -206,7 +206,7 @@ bool MainComponent::keyPressed(const KeyPress &key)
                 refresh_controls = true;
             }
             else {
-                const uint32 samples_per_pixel = static_cast<uint32>(
+                const int32 samples_per_pixel = static_cast<int32>(
                     SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
                 mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? -samples_per_pixel : -1);
             }
@@ -295,7 +295,7 @@ void MainComponent::mouseWheelMove(const MouseEvent& event, const MouseWheelDeta
 }
 
 bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, MixScript::Mixer& mixer,
-    MixScript::TrackVisualCache& visuals, const int visuals_index) {
+    MixScript::TrackVisualCache& visuals, const int visuals_index, const bool right_click, PopupMenu& menuMarkerType) {
     if (mouse_x >= visuals.draw_region.x &&
         mouse_y >= visuals.draw_region.y &&
         mouse_x <= visuals.draw_region.x + visuals.draw_region.w &&
@@ -314,6 +314,15 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             if (MixScript::TrySelectMarker(mixer.Selected(), position,
                 static_cast<int>(2 * samples_per_pixel * format.channels * format.bit_rate / 8))) {
                 mc->LoadControls();
+                if (right_click) {
+                    if (menuMarkerType.getNumItems() == 0) {
+                        menuMarkerType.addItem(1, "Implied");
+                        menuMarkerType.addItem(1, "Region Left");
+                        menuMarkerType.addItem(1, "Region Left/Right");
+                        menuMarkerType.addItem(1, "Region Right");
+                    }
+                    menuMarkerType.showAt(juce::Rectangle<int>(mouse_x, mouse_y, 10, 22));
+                }
             }
         }
         return true;
@@ -325,9 +334,11 @@ void MainComponent::mouseDown(const MouseEvent &event)
 {
     const int mouse_x = event.getMouseDownX();
     const int mouse_y = event.getMouseDownY();
-
-    if (!HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_incoming_visuals.get(), 1)) {
-        HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_playing_visuals.get(), 0);
+    const bool right_click = event.mods.isRightButtonDown();
+    
+    // TODO: Clean this up.
+    if (!HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_incoming_visuals.get(), 1, right_click, menuMarkerType)) {
+        HandleMouseDown(this, mouse_x, mouse_y, *mixer.get(), *track_playing_visuals.get(), 0, right_click, menuMarkerType);
     }
 }
 

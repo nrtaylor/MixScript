@@ -4,12 +4,14 @@
 TrackControlsComponent::TrackControlsComponent() {
     auto value_changed_func = [this] { HandleValueChanged(sendNotification); };
 
+    int x_offset = 4;
     bypass.onStateChange = value_changed_func;
-    bypass.setBounds(4, 0, 21, 21);
+    bypass.setBounds(x_offset, 0, 21, 21);
     addAndMakeVisible(&bypass);    
 
+    x_offset += 22 + 2;
     const int slider_width = 212;
-    slider_gain.setBounds(4 + 22, 0, slider_width, 22);
+    slider_gain.setBounds(x_offset, 0, slider_width, 22);
     slider_gain.setRange(0.0, 1.0, 0.01);
     slider_gain.setTextValueSuffix(" Gain");
     slider_gain.setValue(1.0);
@@ -17,7 +19,8 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain.setWantsKeyboardFocus(true); 
     addAndMakeVisible(&slider_gain);
 
-    slider_gain_threshold.setBounds(4 + 22 + slider_width, 0, slider_width, 22);
+    x_offset += slider_width + 1;
+    slider_gain_threshold.setBounds(x_offset, 0, slider_width, 22);
     slider_gain_threshold.setRange(0.0, 1.0, 0.01);
     slider_gain_threshold.setTextValueSuffix(" %");
     slider_gain_threshold.setValue(0.0);
@@ -25,7 +28,9 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain_threshold.setWantsKeyboardFocus(true);
     addAndMakeVisible(&slider_gain_threshold);
 
-    setSize(bypass.getWidth() + 2 * (slider_width + 4), 88);
+    x_offset += slider_width + 1;
+
+    setSize(x_offset + 4, 88);
 
     HandleValueChanged(dontSendNotification);
 }
@@ -42,9 +47,10 @@ void TrackControlsComponent::LoadControls(const float _gain, const float _interp
 }
 
 void TrackControlsComponent::HandleValueChanged(const NotificationType notification) {
-    if (on_coefficient_changed != nullptr &&
-        notification != dontSendNotification) {
-        on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue(),
-            bypass.getToggleState());
+    if (notification != dontSendNotification) {
+        if (on_coefficient_changed != nullptr) {
+            on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue(),
+                bypass.getToggleState());
+        }
     }
 }

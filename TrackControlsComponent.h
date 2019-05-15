@@ -11,8 +11,8 @@ public:
     void LoadControls(const float _gain, const float _interpolation_percent, const bool _bypass,
         const NotificationType notification);
 
-    std::function<void(const float cuttoff_frequency, const float interpolation_percent,
-        const bool bypass)> on_coefficient_changed;
+    std::function<void(const float _gain, const float _interpolation_percent,
+        const bool _bypass)> on_coefficient_changed;
 
     void Focus();
 private:
