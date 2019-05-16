@@ -311,17 +311,24 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             const int click_offset = (uint32_t)(samples_per_pixel * offset) * format.channels * format.bit_rate / 8;
             uint8_t const * const position = visuals.scroll_offset + click_offset;
             MixScript::ResetToPos(mixer.Selected(), position);
-            if (MixScript::TrySelectMarker(mixer.Selected(), position,
+            if (MixScript::Cue* cue = MixScript::TrySelectMarker(mixer.Selected(), position,
                 static_cast<int>(2 * samples_per_pixel * format.channels * format.bit_rate / 8))) {
                 mc->LoadControls();
-                if (right_click) {
-                    if (menuMarkerType.getNumItems() == 0) {
-                        menuMarkerType.addItem(1, "Implied");
-                        menuMarkerType.addItem(1, "Region Left");
-                        menuMarkerType.addItem(1, "Region Left/Right");
-                        menuMarkerType.addItem(1, "Region Right");
-                    }
-                    menuMarkerType.showAt(juce::Rectangle<int>(mouse_x, mouse_y, 10, 22));
+                if (right_click) {                   
+                    menuMarkerType.clear();
+                    menuMarkerType.addItem(MixScript::CT_IMPLIED, "Implied", true, cue->type == MixScript::CT_IMPLIED);
+                    menuMarkerType.addItem(MixScript::CT_LEFT, "Region Left", true, cue->type == MixScript::CT_LEFT);
+                    menuMarkerType.addItem(MixScript::CT_LEFT_RIGHT, "Region Left/Right", true,
+                        cue->type == MixScript::CT_LEFT_RIGHT);
+                    menuMarkerType.addItem(MixScript::CT_RIGHT, "Region Right", true, cue->type == MixScript::CT_RIGHT);
+                    menuMarkerType.showAt(juce::Rectangle<int>(mouse_x, mouse_y, 10, 22), 0, 0, 0, 0,
+                        ModalCallbackFunction::create([cue](const int ret_value) {
+                        if (cue->type == ret_value) {
+                            cue->type = MixScript::CT_DEFAULT;
+                        } else {
+                            cue->type = static_cast<MixScript::CueType>(ret_value);
+                        }
+                    }));
                 }
             }
         }

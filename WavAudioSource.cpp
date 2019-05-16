@@ -70,7 +70,7 @@ namespace MixScript
         int pivot_id = 0;
         for (MixScript::Cue& cue : cue_starts) {
             ++pivot_id;
-            if (!cue.implied) {
+            if (cue.type != CT_IMPLIED) {
                 break;
             }            
         }
@@ -101,7 +101,7 @@ namespace MixScript
         const int32_t num_bytes = num_samples * alignment;
         const int selected_marker_index = selected_marker - 1;        
         cue_starts[selected_marker_index].start += num_bytes;
-        if (cue_starts[selected_marker_index].implied) {
+        if (cue_starts[selected_marker_index].type == CT_IMPLIED) {
             CorrectImpliedMarkers();
         }
         if (selected_marker_index > 0 &&
@@ -116,7 +116,7 @@ namespace MixScript
         }        
     }
 
-    void WaveAudioSource::AddMarker(const bool implied) {
+    void WaveAudioSource::AddMarker(const CueType type /*= CT_DEFAULT*/) {
         assert((read_pos - audio_start) % 4 == 0);
         auto it = cue_starts.begin();
         for (; it != cue_starts.end(); ++it) {
@@ -124,8 +124,16 @@ namespace MixScript
                 break;
             }
         }
-        it = cue_starts.insert(it, { read_pos, implied });
+        const bool change_default = type == CT_DEFAULT && cue_starts.size() == 0;
+        it = cue_starts.insert(it, { read_pos, change_default ? CT_LEFT_RIGHT : type });
         selected_marker = 1 + (it - cue_starts.begin());
+    }
+
+    void WaveAudioSource::UpdateMarker(const CueType type) {
+        if (selected_marker <= 0) {
+            return;
+        }
+        cue_starts[selected_marker - 1].type = type;
     }
 
     void WaveAudioSource::DeleteMarker() {
@@ -162,14 +170,10 @@ namespace MixScript
         last_read_pos = 0;
         write_pos = audio_start_pos_;
         for (const uint32_t cue_offset : cue_offsets) {
-            cue_starts.push_back({ audio_start + 4 * cue_offset, true });
+            cue_starts.push_back({ audio_start + 4 * cue_offset, CT_DEFAULT });
         }
-        if (cue_starts.size() > 1) {
-            mix_duration = static_cast<decltype(mix_duration)>(cue_starts.back().start - cue_starts.front().start);
-            mix_duration /= format.channels;
-        }
-        else {
-            mix_duration = 0;
+        if (cue_starts.size()) {
+            cue_starts.front().type == CT_LEFT_RIGHT;
         }
     }
 
@@ -209,16 +213,16 @@ namespace MixScript
         assert(source.last_read_pos.load() % 4 == 0);
     }
 
-    bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance) {
+    MixScript::Cue* TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance) {
         int index = 0;
-        for (const MixScript::Cue& cue : source.cue_starts) {                        
+        for (MixScript::Cue& cue : source.cue_starts) {                        
             if (abs(static_cast<int>(cue.start - position)) <= tolerance) {
                 source.selected_marker = index + 1;
-                return true;
+                return &cue;
             }
             ++index;
         }
-        return false;
+        return nullptr;
     }
 
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source_, float* left, float* right, int samples_to_read) {
@@ -369,7 +373,7 @@ namespace MixScript
         WaveAudioSource& source = Selected();
         auto& cues = source.cue_starts;
         cues.erase(std::remove_if(cues.begin(), cues.end(), [](const MixScript::Cue& cue) {
-            return cue.implied;
+            return cue.type == CT_IMPLIED;
         }), cues.end());
     }
 
@@ -391,12 +395,12 @@ namespace MixScript
         const uint32_t delta = read_end_cue - cues[cue_start - 1].start;
         while (source.read_pos - source.audio_start > delta) {
             source.read_pos -= delta;
-            source.AddMarker(true); // Will invalidate cue_start and cue_end
+            source.AddMarker(CT_IMPLIED); // Will invalidate cue_start and cue_end
         }
         source.read_pos = read_end_cue;
         while (source.audio_end - source.read_pos > delta) {
             source.read_pos += delta;
-            source.AddMarker(true);
+            source.AddMarker(CT_IMPLIED);
         }
         source.read_pos = original_pos;
     }
@@ -488,8 +492,7 @@ namespace MixScript
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start : playing_.audio_start;
-        const float inv_duration = 1.f / playing_.mix_duration;
+        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start : playing_.audio_start;        
         float left = 0;
         float right = 0;
         const bool make_mono = modifier_mono;
@@ -531,12 +534,10 @@ namespace MixScript
     void SaveAudioSource(const WaveAudioSource* source, std::ofstream& fs) {
         fs << "audio_source {\n";
         for (const MixScript::Cue& cue : source->cue_starts) {
-            if (cue.implied) {
-                continue;
-            }
             uint8_t const * const cue_pos = cue.start;
             fs << "cues {\n";
             fs << "  pos: " << static_cast<int32_t>(cue_pos - source->audio_start) << "\n";
+            fs << "  type: " << static_cast<int32_t>(cue.type) << "\n";
             fs << "}\n";
         }
         fs << "}\n";
@@ -588,6 +589,8 @@ namespace MixScript
         ParseStartBlock("audio_source", line);
         std::getline(fs, line);
         std::string cue_pos;
+        std::string cue_type_param;
+        CueType cue_type;
         std::vector<Cue> cue_starts;
         const uint32_t indent = 2;
 
@@ -595,7 +598,12 @@ namespace MixScript
             std::getline(fs, line);
             while (!ParseEndBlock(line)) {
                 ParseParam("pos", line, cue_pos, indent);
-                cue_starts.push_back({ source.audio_start + std::stoi(cue_pos), false });
+                if (ParseParam("type", line, cue_type_param, indent)) {
+                    cue_type = static_cast<CueType>(std::stoi(cue_type_param));
+                } else {
+                    cue_type = CT_DEFAULT;
+                }
+                cue_starts.push_back({ source.audio_start + std::stoi(cue_pos), cue_type});
                 std::getline(fs, line);
             }
             std::getline(fs, line);

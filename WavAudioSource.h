@@ -96,9 +96,16 @@ namespace MixScript
             dirty = false;
         }
     };
+    enum CueType : int {
+        CT_DEFAULT,
+        CT_LEFT_RIGHT,
+        CT_LEFT,
+        CT_RIGHT,
+        CT_IMPLIED
+    };
     struct Cue {
         const uint8_t* start;
-        bool implied;
+        CueType type;
     };
     struct WaveAudioSource {
         WaveAudioFormat format;
@@ -108,7 +115,6 @@ namespace MixScript
         uint8_t* const audio_end;
         std::vector<Cue> cue_starts;
         MixerControl<GainParams> gain_control;
-        uint32_t mix_duration;
         float bpm;
         int selected_marker;
 
@@ -122,7 +128,8 @@ namespace MixScript
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
         const uint8_t * SelectedMarkerPos() const;
         void TryWrap();
-        void AddMarker(const bool implied = false);
+        void AddMarker(const CueType type = CT_DEFAULT);
+        void UpdateMarker(const CueType type);
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
@@ -145,7 +152,7 @@ namespace MixScript
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source, const uint32_t cue_id);
     void ResetToPos(WaveAudioSource& source, uint8_t const * const position);
-    bool TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
+    MixScript::Cue* TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
     struct FloatOutputWriter {
