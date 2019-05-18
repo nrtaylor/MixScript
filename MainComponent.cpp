@@ -508,16 +508,33 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                     }
                     g.setColour(*marker_color);
                     const int pixel_pos = x - 1;
-                    int cue_id = cue_index + 1;
+                    const int cue_id = cue_index + 1;
                     g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1,
                         audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
-                    const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
-                    const int label_width = cue_id > 99 ? 8 : 6;
-                    const juce::Rectangle<float> label_rect(pixel_pos - label_width, markers.getPosition().y + 1,
-                        label_width * 2, 10);
-                    g.drawText(cue_label, label_rect, juce::Justification::centred);
-                    if (source->selected_marker == cue_id) {
-                        g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
+                    switch (cue.type) {
+                    case MixScript::CT_LEFT_RIGHT:
+                        g.fillRect(pixel_pos - 8, audio_file_form.getTopLeft().y - 2, 16, 1);
+                        g.fillRect(pixel_pos - 8, audio_file_form.getBottom() + 1, 16, 1);
+                        break;
+                    case MixScript::CT_LEFT:
+                        g.fillRect(pixel_pos - 8, audio_file_form.getTopLeft().y - 2, 9, 1);
+                        g.fillRect(pixel_pos - 8, audio_file_form.getBottom() + 1, 9, 1);
+                        break;
+                    case MixScript::CT_RIGHT:
+                        g.fillRect(pixel_pos, audio_file_form.getTopLeft().y - 2, 9, 1);
+                        g.fillRect(pixel_pos, audio_file_form.getBottom() + 1, 9, 1);
+                        break;
+                    }
+                    if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id ||
+                        track_visuals->zoom_factor > 1.f) {
+                        const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
+                        const int label_width = cue_id > 99 ? 8 : 6;
+                        const juce::Rectangle<float> label_rect(pixel_pos - label_width, markers.getPosition().y + 2,
+                            label_width * 2, 10);
+                        g.drawText(cue_label, label_rect, juce::Justification::centred);
+                        if (source->selected_marker == cue_id) {
+                            g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
+                        }
                     }
                     g.setColour(background_color);
                 }
