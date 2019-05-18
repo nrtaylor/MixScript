@@ -598,13 +598,14 @@ namespace MixScript
             std::getline(fs, line);
             while (!ParseEndBlock(line)) {
                 ParseParam("pos", line, cue_pos, indent);
+                std::getline(fs, line);
                 if (ParseParam("type", line, cue_type_param, indent)) {
                     cue_type = static_cast<CueType>(std::stoi(cue_type_param));
+                    std::getline(fs, line);
                 } else {
                     cue_type = CT_DEFAULT;
                 }
-                cue_starts.push_back({ source.audio_start + std::stoi(cue_pos), cue_type});
-                std::getline(fs, line);
+                cue_starts.push_back({ source.audio_start + std::stoi(cue_pos), cue_type});                
             }
             std::getline(fs, line);
         }

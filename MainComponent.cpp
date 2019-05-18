@@ -456,6 +456,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     const Colour colour = selected ? Colour::fromRGB(0, 0, 0xAA) : Colour::fromRGB(0x33, 0x33, 0x66);
     const Colour background_color = Colour::fromRGB(0x77, 0x77, selected ? 0xAA : 0x77);
     const Colour midground_colour = selected ? Colour::fromRGB(0x33, 0x33, 0x88) : Colour::fromRGB(0x33, 0x33, 0x55);
+    const Colour region_marker_colour = selected ? Colour::fromRGB(0x22, 0x22, 0x22) : Colour::fromRGB(0x55, 0x55, 0x55);
 
     g.setColour(colour);
     g.drawRect(audio_file_form);
@@ -495,8 +496,17 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
             const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
             g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
             while (cue_index < source->cue_starts.size() && source->cue_starts[cue_index].start < peak.end) {                
-                if (source->cue_starts[cue_index].start >= peak.start) {
-                    g.setColour(cue_index % 16 != 0 ? midground_colour : colour);
+                const MixScript::Cue &cue = source->cue_starts[cue_index];
+                if (cue.start >= peak.start) {
+                    // Select Cue Color
+                    const Colour* marker_color = &colour;
+                    if (cue.type != MixScript::CT_DEFAULT && cue.type != MixScript::CT_IMPLIED) {
+                        marker_color = &region_marker_colour;
+                    }
+                    else if (cue_index % 16 != 0) {
+                        marker_color = &midground_colour;
+                    }
+                    g.setColour(*marker_color);
                     const int pixel_pos = x - 1;
                     int cue_id = cue_index + 1;
                     g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1,
