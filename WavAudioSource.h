@@ -139,6 +139,7 @@ namespace MixScript
             uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
 
     private:
+        int32_t FindMarkerPivot(const int32_t marker_id) const;
         void CorrectImpliedMarkers();
     };
 

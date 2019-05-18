@@ -66,28 +66,61 @@ namespace MixScript
         write_pos += 2; // TODO: Byte rate
     }
 
-    void WaveAudioSource::CorrectImpliedMarkers() {
-        int pivot_id = 0;
-        for (MixScript::Cue& cue : cue_starts) {
-            ++pivot_id;
-            if (cue.type != CT_IMPLIED) {
-                break;
-            }            
+    int32_t WaveAudioSource::FindMarkerPivot(const int32_t marker_id) const {
+        const int32_t marker_index = marker_id - 1;
+        if (marker_index < 0 ||
+            (cue_starts[marker_index].type != CT_IMPLIED &&
+             cue_starts[marker_index].type != CT_DEFAULT)) {
+            return marker_id;
+        }        
+        for (int32_t index = marker_index - 1; index >= 0; --index) {
+            if (cue_starts[index].type == CT_LEFT_RIGHT ||
+                cue_starts[index].type == CT_RIGHT) {
+                return index + 1; // to id
+            }
         }
-        if (pivot_id == (int)cue_starts.size() || selected_marker == pivot_id) {
+        for (int32_t index = marker_index + 1; index < cue_starts.size(); ++index) {
+            if (cue_starts[index].type == CT_LEFT_RIGHT ||
+                cue_starts[index].type == CT_LEFT) {
+                return index + 1; // to id
+            }
+        }
+        return marker_id;
+    }
+
+    void WaveAudioSource::CorrectImpliedMarkers() {
+        const int pivot_id = FindMarkerPivot(selected_marker);
+        if (pivot_id == 0 || pivot_id >= (int)cue_starts.size() || selected_marker == pivot_id) {
             return;
         }
-        uint8_t const * const start = cue_starts[pivot_id - 1].start;
+        const MixScript::Cue& pivot_cue = cue_starts[pivot_id - 1];
+        uint8_t const * const start = pivot_cue.start;
         const int32_t delta = cue_starts[selected_marker - 1].start - start;
         const float new_delta = fabsf(static_cast<float>(delta) / (selected_marker - pivot_id));
-        const int pivot_index = pivot_id - 1;
-        int index = 0;
-        for (MixScript::Cue& cue : cue_starts) {
-            if (int samples = static_cast<int>((index - pivot_index) * new_delta)) {
-                samples &= ~(0x04 - 1);
-                cue.start = start + samples;
+        const int pivot_index = pivot_id - 1;        
+        auto update_marker = [&, this](MixScript::Cue& cue, const int32_t index) -> bool {
+            if (FindMarkerPivot(index + 1) == pivot_id) {
+                if (int samples = static_cast<int>((index - pivot_index) * new_delta)) {
+                    samples &= ~(0x04 - 1);
+                    cue.start = start + samples;
+                    return true;
+                }
             }
-            ++index;
+            return false;
+        };
+        if (pivot_cue.type == CT_LEFT || pivot_cue.type == CT_LEFT_RIGHT) {
+            for (int32_t index = pivot_index - 1; index >= 0; --index) {
+                if (!update_marker(cue_starts[index], index)) {
+                    break;
+                }
+            }
+        }
+        if (pivot_cue.type == CT_RIGHT || pivot_cue.type == CT_LEFT_RIGHT) {
+            for (int32_t index = pivot_index + 1; index < cue_starts.size(); ++index) {
+                if (!update_marker(cue_starts[index], index)) {
+                    break;
+                }
+            }
         }
         const float samples_per_beat = new_delta / (4 * format.channels * ByteRate(format));
         bpm = 60.f * format.sample_rate / samples_per_beat;
