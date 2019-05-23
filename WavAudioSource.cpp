@@ -317,17 +317,19 @@ namespace MixScript
         return gain;
     }
 
-    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass) {
+    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass,
+        const bool use_marker) {
         WaveAudioSource& source = Selected();
         if (source.gain_control.bypass != bypass) {
             source.gain_control.bypass = bypass;
             return;
         }        
         const int cue_id = source.selected_marker;
-        if (cue_id > 0) {
-            uint8_t const * const marker_pos = source.cue_starts[cue_id - 1].start;
+        if (cue_id > 0 || !use_marker) {
+            uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start : source.read_pos;
             int gain_cue_id = 0;
             bool found = false;
+            // TODO: Binary Search
             for (Movement<GainParams>& movement : source.gain_control.movements) {
                 // TODO: Decide if it is easier to separate automation points from cues, or if
                 // automation and cues should stay in sync.

@@ -217,7 +217,7 @@ namespace MixScript
         int MarkerRight() const;
 
         void SetSelectedMarker(int cue_id);
-        void UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass);
+        void UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass, const bool use_marker);
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
         void AddMarker();

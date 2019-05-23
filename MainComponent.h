@@ -60,6 +60,7 @@ private:
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;
     std::atomic_bool modifier_mono;
+    std::atomic_bool record_automation_mode;
 
     // UI
     TextButton button_loadfile;
@@ -68,12 +69,12 @@ private:
     Label label_outfile;
 
     ToggleButton visual_accentuate;
+    ToggleButton record_automation;
 
     TrackControlsComponent playing_controls;
 
     MenuBarComponent menuBar;
     PopupMenu menuMarkerType;
-
 
     void ExportRender();
     void SaveProject();
