@@ -558,7 +558,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     // automation
     {
         if (automation.dirty || automation.values.size() != wave_width) {
-            MixScript::ComputeParamAutomation(*source, wave_width, automation, track_visuals->zoom_factor);
+            MixScript::ComputeParamAutomation(*source, wave_width, automation, track_visuals->zoom_factor,
+                track_visuals->scroll_offset);
             automation.dirty = false;
         }
 

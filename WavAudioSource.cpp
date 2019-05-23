@@ -327,6 +327,7 @@ namespace MixScript
         const int cue_id = source.selected_marker;
         if (cue_id > 0 || !use_marker) {
             uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start : source.read_pos;
+            assert((uint64_t)source.read_pos == (uint64_t)(source.audio_start + source.last_read_pos));
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
@@ -915,17 +916,20 @@ namespace MixScript
     }
 
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
-        const int zoom_factor) {
+        const int zoom_factor, uint8_t const * const _scroll_offset) {
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
-        const uint32_t bytes_per_pixel = (uint32_t)(zoom_amount * delta / (float)pixel_width);
+        const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
 
         automation.values.resize(pixel_width);
-        const uint8_t* read_pos = ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos,
-            pixel_width, zoom_amount);
+        uint8_t const * const scroll_offset = _scroll_offset != nullptr ? _scroll_offset :
+            ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos, pixel_width, zoom_amount);
+        const uint8_t* read_pos = scroll_offset;
+        int i = 0;
         for (float& value : automation.values) {
             value = source.gain_control.Apply(read_pos, 1.f);
-            read_pos += bytes_per_pixel;
+            ++i;
+            read_pos = scroll_offset + (uint32_t)(i * bytes_per_pixel);
         }
     }
 

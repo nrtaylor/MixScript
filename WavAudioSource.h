@@ -146,7 +146,7 @@ namespace MixScript
     const uint8_t* ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
         const int zoom_factor);
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
-        const int zoom_factor);
+        const int zoom_factor, uint8_t const * const _scroll_offset);
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);
