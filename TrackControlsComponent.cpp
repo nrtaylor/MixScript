@@ -2,7 +2,7 @@
 
 
 TrackControlsComponent::TrackControlsComponent() {
-    auto value_changed_func = [this] { HandleValueChanged(sendNotification); };
+    auto value_changed_func = [this] { HandleValueChanged(sendNotification); };    
 
     int x_offset = 4;
     bypass.onStateChange = value_changed_func;
@@ -29,7 +29,22 @@ TrackControlsComponent::TrackControlsComponent() {
     addAndMakeVisible(&slider_gain_threshold);
 
     x_offset += slider_width + 1;
+    reset.setButtonText("R");
+    reset.onClick = [this] {
+        on_action(MixScript::SourceActionInfo{ MixScript::SA_RESET_AUTOMATION });
+    };
+    reset.setBounds(x_offset, 0, 22, 22);
+    addAndMakeVisible(&reset);
 
+    x_offset += 22 + 1;
+    reset_in_region.setButtonText("R|");
+    reset_in_region.onClick = [this] {
+        on_action(MixScript::SourceActionInfo{ MixScript::SA_RESET_AUTOMATION_IN_REGION });
+    };
+    reset_in_region.setBounds(x_offset, 0, 24, 22);
+    addAndMakeVisible(&reset_in_region);
+
+    x_offset += 24 + 1;
     setSize(x_offset + 4, 88);
 
     HandleValueChanged(dontSendNotification);

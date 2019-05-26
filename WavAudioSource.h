@@ -7,6 +7,8 @@
 #include <atomic>
 #include <memory>
 
+#include "MixScriptAction.h"
+
 namespace MixScript
 {
     struct WaveAudioBuffer;
@@ -53,12 +55,13 @@ namespace MixScript
 
     template<typename Params>
     struct MixerControl {        
-        std::vector<Movement<Params> > movements;
+        typedef Movement<Params> value_type;
+        std::vector<value_type> movements;
         bool bypass;
 
         MixerControl() : bypass(false) {}
 
-        Movement<Params>& Add(Params&& params, uint8_t const * const position);
+        value_type& Add(Params&& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
     };
 
@@ -218,6 +221,7 @@ namespace MixScript
 
         void SetSelectedMarker(int cue_id);
         void UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass, const bool use_marker);
+        void HandleAction(const SourceActionInfo& action_info);
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
         void AddMarker();
@@ -225,6 +229,12 @@ namespace MixScript
         void ClearImpliedMarkers();
         void GenerateImpliedMarkers();
     private:
+        struct Region {
+            const uint8_t* start;
+            const uint8_t* end;
+        };
+
+        Region CurrentRegion() const;
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

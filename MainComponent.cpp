@@ -89,11 +89,15 @@ MainComponent::MainComponent() :
 
     playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
     addAndMakeVisible(&playing_controls);
-    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent, const bool bypass)
-    {
+    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent, const bool bypass) {
         mixer->UpdateGainValue(gain, interpolation_percent, bypass, !record_automation_mode.load());
         SelectedVisuals()->gain_automation.dirty = true;
-    };    
+    };
+
+    playing_controls.on_action = [this](const MixScript::SourceActionInfo& action_info) {
+        mixer->HandleAction(action_info);
+        SelectedVisuals()->gain_automation.dirty = true;
+    };
 
     // Make sure you set the size of the component after
     // you add any child components.

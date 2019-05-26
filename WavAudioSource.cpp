@@ -206,7 +206,7 @@ namespace MixScript
             cue_starts.push_back({ audio_start + 4 * cue_offset, CT_DEFAULT });
         }
         if (cue_starts.size()) {
-            cue_starts.front().type == CT_LEFT_RIGHT;
+            cue_starts.front().type = CT_LEFT_RIGHT;
         }
     }
 
@@ -315,6 +315,53 @@ namespace MixScript
         }
 
         return gain;
+    }
+
+    Mixer::Region Mixer::CurrentRegion() const {
+        const WaveAudioSource& source = Selected();
+        Region region{ source.audio_start, source.audio_end };
+        uint8_t const * const read_pos = source.audio_start + source.last_read_pos;
+        for (const MixScript::Cue& cue : source.cue_starts) {
+            if (cue.type == MixScript::CT_IMPLIED || cue.type == MixScript::CT_DEFAULT) {
+                continue;
+            }
+            if (cue.start < read_pos) {
+                region.start = cue.start;
+            }
+            if (cue.start >= read_pos) {
+                region.end = cue.start;
+                break;
+            }
+        }
+        return region;
+    }
+
+    void Mixer::HandleAction(const SourceActionInfo& action_info) {
+        // TODO: Don't delete first movement
+        switch (action_info.action)
+        {
+        case MixScript::SA_RESET_AUTOMATION:            
+            if (Selected().gain_control.movements.size() > 1) {
+                auto& movements = Selected().gain_control.movements;
+                movements.erase(movements.begin() + 1, movements.end());
+            }
+            break;
+        case MixScript::SA_RESET_AUTOMATION_IN_REGION:
+        {
+            const Region region = CurrentRegion();
+            auto& movements = Selected().gain_control.movements;
+            decltype(Selected().gain_control)::value_type movement_type;
+            if (!movements.empty()) {
+                movements.erase(
+                    std::remove_if(movements.begin(), movements.end(), [&](const decltype(movements[0])& movement) {
+                    return movement.cue_pos > region.start && movement.cue_pos <= region.end;
+                }), movements.end());
+            }
+        }
+        break;
+        default:
+            break;
+        }
     }
 
     void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass,
@@ -520,6 +567,7 @@ namespace MixScript
 
             return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
         }
+        return sample;
     }
 
     template<class T>
@@ -539,7 +587,6 @@ namespace MixScript
             left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             if (playing_.read_pos >= front) {
-                uint8_t const * const incoming_read_pos = incoming_.read_pos;
                 left += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
                 right += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
             }
