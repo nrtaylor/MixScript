@@ -336,6 +336,16 @@ namespace MixScript
         return region;
     }
 
+    template <typename Params>
+    void MixerControl<Params>::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
+        if (!movements.empty()) {
+            movements.erase(
+                std::remove_if(movements.begin(), movements.end(), [&](const MixerControl::movement_type& movement) {
+                return movement.cue_pos > start && movement.cue_pos <= end;
+            }), movements.end());
+        }
+    }
+
     void Mixer::HandleAction(const SourceActionInfo& action_info) {
         // TODO: Don't delete first movement
         switch (action_info.action)
@@ -348,15 +358,8 @@ namespace MixScript
             break;
         case MixScript::SA_RESET_AUTOMATION_IN_REGION:
         {
-            const Region region = CurrentRegion();
-            auto& movements = Selected().gain_control.movements;
-            decltype(Selected().gain_control)::value_type movement_type;
-            if (!movements.empty()) {
-                movements.erase(
-                    std::remove_if(movements.begin(), movements.end(), [&](const decltype(movements[0])& movement) {
-                    return movement.cue_pos > region.start && movement.cue_pos <= region.end;
-                }), movements.end());
-            }
+            const Region region = CurrentRegion();            
+            Selected().gain_control.ClearMovements(region.start, region.end);
         }
         break;
         default:

@@ -97,6 +97,7 @@ MainComponent::MainComponent() :
     playing_controls.on_action = [this](const MixScript::SourceActionInfo& action_info) {
         mixer->HandleAction(action_info);
         SelectedVisuals()->gain_automation.dirty = true;
+        // TODO: Must fix gain value in control
     };
 
     // Make sure you set the size of the component after

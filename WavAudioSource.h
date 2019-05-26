@@ -55,14 +55,15 @@ namespace MixScript
 
     template<typename Params>
     struct MixerControl {        
-        typedef Movement<Params> value_type;
-        std::vector<value_type> movements;
+        typedef Movement<Params> movement_type;
+        std::vector<movement_type> movements;
         bool bypass;
 
         MixerControl() : bypass(false) {}
 
-        value_type& Add(Params&& params, uint8_t const * const position);
+        movement_type& Add(Params&& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
+        void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
 
     struct WavePeaks {
