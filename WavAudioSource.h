@@ -223,6 +223,7 @@ namespace MixScript
         void SetSelectedMarker(int cue_id);
         void UpdateGainValue(const float gain, const float interpolation_percent);
         void HandleAction(const SourceActionInfo& action_info);
+        void ProcessActions();
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
         void AddMarker();
@@ -240,6 +241,9 @@ namespace MixScript
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;
+
+        ActionQueue actions;
+        void DoAction(const SourceActionInfo& action_info);
     };
 
     template void Mixer::Mix<FloatOutputWriter>(FloatOutputWriter& output_writer, int samples_to_read);

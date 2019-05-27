@@ -140,6 +140,8 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     // (to prevent the output of random noise)
     bufferToFill.clearActiveBufferRegion();
 
+    mixer->ProcessActions();
+
     int32_t cue_pos = queued_cue.load();
     if (cue_pos != 0) {
         queued_cue.compare_exchange_strong(cue_pos, 0); // TODO: don't block on audio thread

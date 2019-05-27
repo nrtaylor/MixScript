@@ -17,7 +17,9 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain.setRange(0.0, 1.0, 0.01);
     slider_gain.setTextValueSuffix(" Gain");
     slider_gain.setValue(1.0);
-    slider_gain.onValueChange = value_changed_func;
+    slider_gain.onValueChange = [this] {
+        on_action(MixScript::SourceActionInfo{ MixScript::SA_UPDATE_GAIN, (float)slider_gain.getValue() });
+    };
     slider_gain.setWantsKeyboardFocus(true); 
     addAndMakeVisible(&slider_gain);
 
@@ -26,9 +28,7 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain_threshold.setRange(0.0, 1.0, 0.01);
     slider_gain_threshold.setTextValueSuffix(" %");
     slider_gain_threshold.setValue(0.0);
-    slider_gain_threshold.onValueChange = [this] {
-        on_action(MixScript::SourceActionInfo{ MixScript::SA_UPDATE_GAIN, (float)slider_gain.getValue() });
-    };
+    slider_gain_threshold.onValueChange = value_changed_func;
     slider_gain_threshold.setWantsKeyboardFocus(true);
     addAndMakeVisible(&slider_gain_threshold);
 

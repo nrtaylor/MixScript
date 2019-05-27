@@ -9,7 +9,6 @@
 #include <algorithm>
 #include <stdint.h>
 #include <memory>
-#include <vector>
 #include <assert.h>
 
 #include <iostream>
@@ -275,7 +274,7 @@ namespace MixScript
         return expf(db * log_10);
     }
 
-    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), use_marker(false) {
+    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), use_marker(true) {
         modifier_mono = false;        
     }
 
@@ -347,6 +346,18 @@ namespace MixScript
     }
 
     void Mixer::HandleAction(const SourceActionInfo& action_info) {
+        actions.WriteAction(action_info);
+    }
+
+    void Mixer::ProcessActions() {
+        actions.BeginRead();
+        SourceActionInfo action_info(SA_NULL_ACTION);
+        while (actions.ReadAction(action_info)) {
+            DoAction(action_info);            
+        }
+    }
+
+    void Mixer::DoAction(const SourceActionInfo& action_info) {
         switch (action_info.action)
         {
         case MixScript::SA_UPDATE_GAIN:
@@ -357,6 +368,9 @@ namespace MixScript
                 Selected().gain_control.bypass = (bool)action_info.i_value;
                 return;
             }
+            break;
+        case MixScript::SA_SET_RECORD:
+            use_marker = !(bool)action_info.i_value;
             break;
         case MixScript::SA_RESET_AUTOMATION:            
             if (Selected().gain_control.movements.size() > 1) {
