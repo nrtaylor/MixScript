@@ -17,7 +17,6 @@ MainComponent::MainComponent() :
     mixer(nullptr),
     track_playing_visuals(nullptr),
     track_incoming_visuals(nullptr),
-    record_automation_mode(false),
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
@@ -83,14 +82,14 @@ MainComponent::MainComponent() :
 
     record_automation.setButtonText("Record Automation");
     record_automation.onClick = [this]() {
-        record_automation_mode = record_automation.getToggleState();
+        mixer->HandleAction(MixScript::SourceActionInfo(MixScript::SA_SET_RECORD, (int)record_automation.getToggleState()));
     };
     addAndMakeVisible(record_automation);
 
     playing_controls.setBounds(4, 160, playing_controls.getWidth(), playing_controls.getHeight());
     addAndMakeVisible(&playing_controls);
-    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent, const bool bypass) {
-        mixer->UpdateGainValue(gain, interpolation_percent, bypass, !record_automation_mode.load());
+    playing_controls.on_coefficient_changed = [this](const float gain, const float interpolation_percent) {
+        mixer->UpdateGainValue(gain, interpolation_percent);
         SelectedVisuals()->gain_automation.dirty = true;
     };
 

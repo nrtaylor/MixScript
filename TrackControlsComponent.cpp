@@ -5,7 +5,9 @@ TrackControlsComponent::TrackControlsComponent() {
     auto value_changed_func = [this] { HandleValueChanged(sendNotification); };    
 
     int x_offset = 4;
-    bypass.onStateChange = value_changed_func;
+    bypass.onStateChange = [this] {
+        on_action(MixScript::SourceActionInfo{ MixScript::SA_BYPASS_GAIN, (int)bypass.getToggleState() });
+    };
     bypass.setBounds(x_offset, 0, 21, 21);
     addAndMakeVisible(&bypass);    
 
@@ -24,7 +26,9 @@ TrackControlsComponent::TrackControlsComponent() {
     slider_gain_threshold.setRange(0.0, 1.0, 0.01);
     slider_gain_threshold.setTextValueSuffix(" %");
     slider_gain_threshold.setValue(0.0);
-    slider_gain_threshold.onValueChange = value_changed_func;
+    slider_gain_threshold.onValueChange = [this] {
+        on_action(MixScript::SourceActionInfo{ MixScript::SA_UPDATE_GAIN, (float)slider_gain.getValue() });
+    };
     slider_gain_threshold.setWantsKeyboardFocus(true);
     addAndMakeVisible(&slider_gain_threshold);
 
@@ -64,8 +68,7 @@ void TrackControlsComponent::LoadControls(const float _gain, const float _interp
 void TrackControlsComponent::HandleValueChanged(const NotificationType notification) {
     if (notification != dontSendNotification) {
         if (on_coefficient_changed != nullptr) {
-            on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue(),
-                bypass.getToggleState());
+            on_coefficient_changed((float)slider_gain.getValue(), (float)slider_gain_threshold.getValue());
         }
     }
 }

@@ -59,7 +59,7 @@ namespace MixScript
         std::vector<movement_type> movements;
         bool bypass;
 
-        MixerControl() : bypass(false) {}
+        MixerControl() : bypass(false) { movements.reserve(256); }
 
         movement_type& Add(Params&& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
@@ -221,7 +221,7 @@ namespace MixScript
         int MarkerRight() const;
 
         void SetSelectedMarker(int cue_id);
-        void UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass, const bool use_marker);
+        void UpdateGainValue(const float gain, const float interpolation_percent);
         void HandleAction(const SourceActionInfo& action_info);
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
@@ -236,6 +236,7 @@ namespace MixScript
         };
 
         Region CurrentRegion() const;
+        bool use_marker;
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

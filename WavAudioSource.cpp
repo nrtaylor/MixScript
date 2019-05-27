@@ -275,7 +275,7 @@ namespace MixScript
         return expf(db * log_10);
     }
 
-    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0) {
+    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), use_marker(false) {
         modifier_mono = false;        
     }
 
@@ -347,9 +347,17 @@ namespace MixScript
     }
 
     void Mixer::HandleAction(const SourceActionInfo& action_info) {
-        // TODO: Don't delete first movement
         switch (action_info.action)
         {
+        case MixScript::SA_UPDATE_GAIN:
+            UpdateGainValue(action_info.r_value, 1.f);
+            break;
+        case MixScript::SA_BYPASS_GAIN:
+            if (Selected().gain_control.bypass != (bool)action_info.i_value) {
+                Selected().gain_control.bypass = (bool)action_info.i_value;
+                return;
+            }
+            break;
         case MixScript::SA_RESET_AUTOMATION:            
             if (Selected().gain_control.movements.size() > 1) {
                 auto& movements = Selected().gain_control.movements;
@@ -367,17 +375,12 @@ namespace MixScript
         }
     }
 
-    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent, const bool bypass,
-        const bool use_marker) {
-        WaveAudioSource& source = Selected();
-        if (source.gain_control.bypass != bypass) {
-            source.gain_control.bypass = bypass;
-            return;
-        }        
+    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent) {
+        WaveAudioSource& source = Selected();    
         const int cue_id = source.selected_marker;
         if (cue_id > 0 || !use_marker) {
-            uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start : source.read_pos;
-            assert((uint64_t)source.read_pos == (uint64_t)(source.audio_start + source.last_read_pos));
+            uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start :
+                (source.audio_start + source.last_read_pos);
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
