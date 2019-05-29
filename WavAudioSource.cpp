@@ -508,6 +508,38 @@ namespace MixScript
         source.read_pos = original_pos;
     }
 
+    void Mixer::AlignPlayingSyncToIncomingStart() {
+        if (incoming->selected_marker < mix_sync.incoming_cue_id) {
+            OutputDebugString("Selected incoming marker is invalid or less than the incoming sync point.");
+            return;
+        }
+        if (incoming->cue_starts.size() < 2 || playing->cue_starts.size() < 2) {
+            return;
+        }
+        const uint64_t delta = incoming->cue_starts[incoming->selected_marker - 1].start -
+            incoming->cue_starts[mix_sync.incoming_cue_id - 1].start;
+        const auto& playing_cues = playing->cue_starts;
+        uint8_t const * const selected_pos = playing_cues[playing->selected_marker - 1].start;
+        if ((uint64_t)(selected_pos - playing->audio_start) < delta) {
+            mix_sync.playing_cue_id = 1;
+            return;
+        }
+        uint8_t const * const sync_pos = selected_pos - delta;
+        uint64_t best_delta = (uint64_t)(playing->audio_end - playing->audio_start);
+        int playing_cue_id = 0;
+        for (const MixScript::Cue& cue : playing_cues) {
+            const uint64_t distance = sync_pos > cue.start ? sync_pos - cue.start : cue.start - sync_pos;
+            if (distance <= best_delta) {
+                best_delta = distance;            
+            }
+            else {
+                break;
+            }
+            ++playing_cue_id;
+        }
+        mix_sync.playing_cue_id = playing_cue_id;
+    }
+
     void Mixer::SetMixSync() {
         switch (selected_track)
         {

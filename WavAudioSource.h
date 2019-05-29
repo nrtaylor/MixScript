@@ -226,6 +226,7 @@ namespace MixScript
         void ProcessActions();
         float GainValue(float& interpolation_percent) const;
         void SetMixSync();
+        void AlignPlayingSyncToIncomingStart();
         void AddMarker();
         void DeleteMarker();
         void ClearImpliedMarkers();

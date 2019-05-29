@@ -417,7 +417,8 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
         menu.addItem(2, "Load");
         menu.addItem(3, "Export");
         menu.addItem(4, "Set Sync (S)");
-        menu.addItem(5, "Generate Implied Markers");
+        menu.addItem(5, "Align Sync");
+        menu.addItem(6, "Generate Implied Markers");
     }
 
     return menu;
@@ -439,6 +440,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         mixer->SetMixSync();
         break;
     case 5:
+        mixer->AlignPlayingSyncToIncomingStart();
+        break;
+    case 6:
     {
         const bool paused_state = playback_paused.load();
         playback_paused = true;
@@ -537,9 +541,9 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                         g.fillRect(pixel_pos, audio_file_form.getBottom() + 1, 9, 1);
                         break;
                     }
-                    if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id ||
+                    if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id || cue_id == sync_cue_id ||
                         track_visuals->zoom_factor > 1.f) {
-                        const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%i|" : "%i", cue_id);
+                        const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%|i" : "%i", cue_id);
                         const int label_width = cue_id > 99 ? 8 : 6;
                         const juce::Rectangle<float> label_rect(pixel_pos - label_width, markers.getPosition().y + 2,
                             label_width * 2, 10);
