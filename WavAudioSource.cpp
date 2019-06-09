@@ -800,15 +800,6 @@ namespace MixScript
         return output_source;
     }
 
-    WaveAudioSource* ParseWaveFile(const char* file_path, WaveAudioBuffer* buffer) {
-        WaveAudioFormat format;
-        std::vector<uint32_t> cues;
-        AudioRegion region;
-
-        ParseWaveFile(&format, buffer, &cues, &region);
-        return new WaveAudioSource(file_path, format, buffer, region, cues);
-    }
-
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path) {
 
         uint8_t* large_file_buffer = new uint8_t[kMaxAudioBufferSize];
@@ -824,66 +815,12 @@ namespace MixScript
         }
 
         WaveAudioBuffer* wav_buffer = new WaveAudioBuffer(large_file_buffer, static_cast<uint32_t>(bytes_read));
-        return std::unique_ptr<WaveAudioSource>(ParseWaveFile(file_path, wav_buffer));
-    }
+        WaveAudioFormat format;
+        std::vector<uint32_t> cues;
+        AudioRegion region;
+        ParseWaveFile(&format, wav_buffer, &cues, &region);
 
-    std::vector<uint8_t> ToByteBuffer(const std::unique_ptr<WaveAudioSource>& source) {
-        
-        const uint32_t data_size = static_cast<uint32_t>(source->audio_end - source->audio_start);
-        const uint32_t file_size_minus_8 = 36 + data_size;
-
-        std::vector<uint8_t> buffer; buffer.resize(file_size_minus_8 + 8);
-        uint8_t* write_pos = &buffer[0];
-
-        *(uint32_t*)write_pos = (uint32_t)('R' | ('I' << 8) | ('F' << 16) | ('F' << 24));
-        write_pos += 4;
-
-        *(uint32_t*)write_pos = file_size_minus_8;
-        write_pos += 4;
-
-        *(uint32_t*)write_pos = (uint32_t)('W' | ('A' << 8) | ('V' << 16) | ('E' << 24));
-        write_pos += 4;
-
-        *(uint32_t*)write_pos = (uint32_t)('f' | ('m' << 8) | ('t' << 16) | (' ' << 24));
-        write_pos += 4;
-
-        const uint32_t format_size = 16;
-        *(uint32_t*)write_pos = format_size;
-        write_pos += 4;
-
-        const uint16_t format_tag = 1;
-        *(uint16_t*)write_pos = format_tag;
-        write_pos += 2;
-
-        const uint16_t channels = static_cast<uint16_t>(source->format.channels);
-        *(uint16_t*)write_pos = channels;
-        write_pos += 2;
-
-        const uint32_t sample_rate = source->format.sample_rate;
-        *(uint32_t*)write_pos = sample_rate;
-        write_pos += 4;
-
-        const uint16_t bit_rate = static_cast<uint16_t>(source->format.bit_rate);
-        const uint32_t byte_rate = sample_rate * channels * bit_rate / 8;
-        *(uint32_t*)write_pos = byte_rate;
-        write_pos += 4;
-        
-        const uint16_t block_align = static_cast<uint16_t>(channels * bit_rate / 8);
-        *(uint16_t*)write_pos = block_align;
-        write_pos += 2;
-        
-        *(uint16_t*)write_pos = bit_rate;
-        write_pos += 2;
-
-        *(uint32_t*)write_pos = (uint32_t)('d' | ('a' << 8) | ('t' << 16) | ('a' << 24));
-        write_pos += 4;
-        
-        *(uint32_t*)write_pos = data_size;
-        write_pos += 4;
-
-        memcpy((void*)write_pos, (void*)source->audio_start, data_size);
-        // pad 1 if odd num bytes
-        return buffer;
+        return std::unique_ptr<WaveAudioSource>(new WaveAudioSource(file_path, format, wav_buffer, region, cues));
     }
 
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source) {
@@ -891,7 +828,8 @@ namespace MixScript
             nullptr);
         if (file != INVALID_HANDLE_VALUE) {            
             DWORD bytes_written = 0;
-            std::vector<uint8_t> file_buffer(std::move(ToByteBuffer(source)));
+            std::vector<uint8_t> file_buffer(std::move(
+                ToByteBuffer(source->format, AudioRegionC{ source->audio_start, source->audio_end })));
             const DWORD byte_count = (DWORD)file_buffer.size();
             BOOL bWriteComplete = WriteFile(file, &file_buffer[0], byte_count, &bytes_written, nullptr);
             assert(bytes_written == byte_count);

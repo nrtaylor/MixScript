@@ -16,4 +16,9 @@ namespace MixScript {
         uint8_t * start;
         uint8_t * end;
     };
+
+    struct AudioRegionC {
+        uint8_t const * start;
+        uint8_t const * end;
+    };
 }

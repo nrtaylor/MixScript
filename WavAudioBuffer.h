@@ -17,4 +17,6 @@ namespace MixScript {
 
     void ParseWaveFile(WaveAudioFormat* format, WaveAudioBuffer* buffer,
         std::vector<uint32_t>* cues, AudioRegion* region);
+
+    std::vector<uint8_t> ToByteBuffer(const WaveAudioFormat& format, const AudioRegionC& region);
 }

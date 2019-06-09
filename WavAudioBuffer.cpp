@@ -83,4 +83,62 @@ namespace MixScript {
         region->start = audio_pos;
         region->end = audio_pos + data_chunk_size;
     }
+
+    std::vector<uint8_t> ToByteBuffer(const WaveAudioFormat& format, const AudioRegionC& region) {
+        const uint32_t data_size = static_cast<uint32_t>(region.end - region.start);
+        const uint32_t file_size_minus_8 = 36 + data_size;
+
+        std::vector<uint8_t> buffer; buffer.resize(file_size_minus_8 + 8);
+        uint8_t* write_pos = &buffer[0];
+
+        *(uint32_t*)write_pos = (uint32_t)('R' | ('I' << 8) | ('F' << 16) | ('F' << 24));
+        write_pos += 4;
+
+        *(uint32_t*)write_pos = file_size_minus_8;
+        write_pos += 4;
+
+        *(uint32_t*)write_pos = (uint32_t)('W' | ('A' << 8) | ('V' << 16) | ('E' << 24));
+        write_pos += 4;
+
+        *(uint32_t*)write_pos = (uint32_t)('f' | ('m' << 8) | ('t' << 16) | (' ' << 24));
+        write_pos += 4;
+
+        const uint32_t format_size = 16;
+        *(uint32_t*)write_pos = format_size;
+        write_pos += 4;
+
+        const uint16_t format_tag = 1;
+        *(uint16_t*)write_pos = format_tag;
+        write_pos += 2;
+
+        const uint16_t channels = static_cast<uint16_t>(format.channels);
+        *(uint16_t*)write_pos = channels;
+        write_pos += 2;
+
+        const uint32_t sample_rate = format.sample_rate;
+        *(uint32_t*)write_pos = sample_rate;
+        write_pos += 4;
+
+        const uint16_t bit_rate = static_cast<uint16_t>(format.bit_rate);
+        const uint32_t byte_rate = sample_rate * channels * bit_rate / 8;
+        *(uint32_t*)write_pos = byte_rate;
+        write_pos += 4;
+
+        const uint16_t block_align = static_cast<uint16_t>(channels * bit_rate / 8);
+        *(uint16_t*)write_pos = block_align;
+        write_pos += 2;
+
+        *(uint16_t*)write_pos = bit_rate;
+        write_pos += 2;
+
+        *(uint32_t*)write_pos = (uint32_t)('d' | ('a' << 8) | ('t' << 16) | ('a' << 24));
+        write_pos += 4;
+
+        *(uint32_t*)write_pos = data_size;
+        write_pos += 4;
+
+        memcpy((void*)write_pos, (void*)region.start, data_size);
+        // pad 1 if odd num bytes
+        return buffer;
+    }
 }
