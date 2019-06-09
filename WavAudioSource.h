@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "MixScriptAction.h"
+#include "MixScriptShared.h"
 
 namespace MixScript
 {
@@ -22,12 +23,6 @@ namespace MixScript
             y = x;
             return !bypass ? sample : x;
         }
-    };
-
-    struct WaveAudioFormat {
-        uint32_t channels;
-        uint32_t sample_rate;
-        uint32_t bit_rate;
     };
 
     struct GainParams {
@@ -115,8 +110,8 @@ namespace MixScript
         WaveAudioFormat format;
         std::string file_name;
         std::unique_ptr<WaveAudioBuffer> buffer;        
-        uint8_t* const audio_start;
-        uint8_t* const audio_end;
+        uint8_t const * const audio_start;
+        uint8_t const * const audio_end;
         std::vector<Cue> cue_starts;
         MixerControl<GainParams> gain_control;
         float bpm;
@@ -140,7 +135,7 @@ namespace MixScript
         ~WaveAudioSource();
 
         WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
-            uint8_t* const audio_start_pos_, uint8_t* const audio_end_pos_, const std::vector<uint32_t>& cue_offsets);
+            const AudioRegion& region_, const std::vector<uint32_t>& cue_offsets);
 
     private:
         int32_t FindMarkerPivot(const int32_t marker_id) const;
