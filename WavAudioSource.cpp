@@ -586,54 +586,50 @@ namespace MixScript
             bypass) {
             return sample;
         }
-        int interval = movements.size();        
-        for (auto it = movements.rbegin(); it != movements.rend(); ++it) {
-            const Movement<Params>& movement = *it;
-            if (position >= movement.cue_pos) {                
-                break;
-            }
-            --interval;
+
+        const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
+            [](const Movement<Params>& lhs, uint8_t const * const rhs) { 
+                return lhs.cue_pos < rhs; 
+        });
+
+        if (interval == movements.begin()) {
+            return movements.front().params.Apply(sample);
         }
-        if (interval == 0) {
-            movements.front().params.Apply(sample);
-        }
-        else if (interval >= movements.size()) {
+        if (interval == movements.end()) {
             return movements.back().params.Apply(sample);
         }
-        else {
-            const Movement<Params>& start_state = movements[interval - 1];
-            const Movement<Params>& end_state = movements[interval];
 
-            const int64_t t = (int64_t)(position - start_state.cue_pos);            
-            const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
+        const Movement<Params>& start_state = *(interval - 1);
+        const Movement<Params>& end_state = *interval;        
 
-            const float start_value = start_state.params.Apply(sample);
-            float ratio = (float)t / (float)duration;
-            if (end_state.transition_samples != 0) {
-                if (t < duration - end_state.transition_samples) {
-                    return start_value;
-                }
-                if (duration > end_state.transition_samples) {
-                    ratio = 1.f - (duration - t) / (float)end_state.transition_samples;
-                }
+        const int64_t t = (int64_t)(position - start_state.cue_pos);            
+        const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
+
+        const float start_value = start_state.params.Apply(sample);
+        float ratio = (float)t / (float)duration;
+        if (end_state.transition_samples != 0) {
+            if (t < duration - end_state.transition_samples) {
+                return start_value;
             }
-            else {                
-                if (ratio < end_state.threshold_percent) {
-                    return start_value;
-                }
-                
-                // TODO: Clean up
-                if (end_state.threshold_percent > 0.f) {
-                    uint8_t const * const start_pos = start_state.cue_pos +
-                        static_cast<int32_t>((float)duration * end_state.threshold_percent);
-                    ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
-                }
+            if (duration > end_state.transition_samples) {
+                ratio = 1.f - (duration - t) / (float)end_state.transition_samples;
             }
-
-            const float end_value = end_state.params.Apply(sample);
-            return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
         }
-        return sample;
+        else {                
+            if (ratio < end_state.threshold_percent) {
+                return start_value;
+            }
+                
+            // TODO: Clean up
+            if (end_state.threshold_percent > 0.f) {
+                uint8_t const * const start_pos = start_state.cue_pos +
+                    static_cast<int32_t>((float)duration * end_state.threshold_percent);
+                ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
+            }
+        }
+
+        const float end_value = end_state.params.Apply(sample);
+        return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 
     template<class T>
@@ -649,7 +645,7 @@ namespace MixScript
         for (int32_t i = 0; i < samples_to_read; ++i) {
             uint32_t cue_id = 0;
             uint8_t const * const playing_read_pos = playing_.read_pos;
-            bool on_cue = playing_.Cue(playing_read_pos, cue_id) && cue_id >= mix_sync.playing_cue_id;
+            bool on_cue = playing_.Cue(playing_read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
             left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
             if (playing_.read_pos >= front) {
