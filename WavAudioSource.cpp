@@ -32,6 +32,15 @@ namespace MixScript
     uint32_t ByteRate(const WaveAudioFormat& format) {
         return format.bit_rate / 8;
     }
+    
+    float BytesToTimeMs(const WaveAudioFormat& format, const uint64_t& bytes) {
+        return 1000.f * (float)bytes / (float)(ByteRate(format) * format.channels * format.sample_rate);
+    }
+
+    // TODO: float or round to int
+    float TimeMsToBytes(const WaveAudioFormat& format, const float& duration) {
+        return duration * (float)(ByteRate(format) * format.channels * format.sample_rate) / 1000.f;
+    }
 
     float WaveAudioSource::Read() {
         if (read_pos >= audio_end) {
@@ -86,7 +95,7 @@ namespace MixScript
         }
         const MixScript::Cue& pivot_cue = cue_starts[pivot_id - 1];
         uint8_t const * const start = pivot_cue.start;
-        const int32_t delta = cue_starts[selected_marker - 1].start - start;
+        const int64_t delta = cue_starts[selected_marker - 1].start - start;
         const float new_delta = fabsf(static_cast<float>(delta) / (selected_marker - pivot_id));
         const int pivot_index = pivot_id - 1;        
         auto update_marker = [&, this](MixScript::Cue& cue, const int32_t index) -> bool {
@@ -396,6 +405,7 @@ namespace MixScript
                 if (movement.cue_pos == marker_pos) {
                     movement.params.gain = gain;
                     movement.threshold_percent = interpolation_percent;
+                    movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                     found = true;
                     break;
                 }
@@ -408,10 +418,12 @@ namespace MixScript
                 if (gain_cue_id >= source.gain_control.movements.size()) {
                     Movement<GainParams>& movement = source.gain_control.Add(GainParams{ gain }, marker_pos);
                     movement.threshold_percent = interpolation_percent;
+                    movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                 }
                 else {
                     source.gain_control.movements.insert(source.gain_control.movements.begin() + gain_cue_id,
-                        Movement<GainParams>{ GainParams{ gain }, MFT_LINEAR, interpolation_percent, marker_pos } );
+                        Movement<GainParams>{ GainParams{ gain }, MFT_LINEAR, interpolation_percent,
+                        (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos } );
                 }
             }
         }
@@ -564,7 +576,7 @@ namespace MixScript
 
     template<typename Params>
     Movement<Params>& MixerControl<Params>::Add(Params&& params, uint8_t const * const position) {
-        movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, position });
+        movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, 0, position });
         return movements.back();
     }
 
@@ -592,23 +604,33 @@ namespace MixScript
             const Movement<Params>& start_state = movements[interval - 1];
             const Movement<Params>& end_state = movements[interval];
 
-            const float t = (float)(position - start_state.cue_pos);
-            const float duration = (float)(end_state.cue_pos - start_state.cue_pos);
+            const int64_t t = (int64_t)(position - start_state.cue_pos);            
+            const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
 
             const float start_value = start_state.params.Apply(sample);
-            float ratio = t / duration;
-            if (ratio < end_state.threshold_percent) {
-                return start_value;
+            float ratio = (float)t / (float)duration;
+            if (end_state.transition_samples != 0) {
+                if (t < duration - end_state.transition_samples) {
+                    return start_value;
+                }
+                if (duration > end_state.transition_samples) {
+                    ratio = 1.f - (duration - t) / (float)end_state.transition_samples;
+                }
             }
+            else {                
+                if (ratio < end_state.threshold_percent) {
+                    return start_value;
+                }
+                
+                // TODO: Clean up
+                if (end_state.threshold_percent > 0.f) {
+                    uint8_t const * const start_pos = start_state.cue_pos +
+                        static_cast<int32_t>((float)duration * end_state.threshold_percent);
+                    ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
+                }
+            }
+
             const float end_value = end_state.params.Apply(sample);
-
-            // TODO: Clean up
-            if (end_state.threshold_percent > 0.f) {
-                uint8_t const * const start_pos = start_state.cue_pos +
-                    static_cast<int32_t>(duration * end_state.threshold_percent);
-                ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
-            }
-
             return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
         }
         return sample;

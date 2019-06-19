@@ -45,6 +45,7 @@ namespace MixScript
         Params params;
         MixFadeType interpolation_type;
         float threshold_percent;
+        int64_t transition_samples;
         const uint8_t* cue_pos;
     };
 
@@ -53,6 +54,8 @@ namespace MixScript
         typedef Movement<Params> movement_type;
         std::vector<movement_type> movements;
         bool bypass;
+
+        WaveAudioFormat format;
 
         MixerControl() : bypass(false) { movements.reserve(256); }
 
