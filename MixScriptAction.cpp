@@ -30,6 +30,7 @@ namespace MixScript {
         if (read_index.compare_exchange_weak(next_read_index, next_read_index + 1)) {
             _action = buffer[next_read_index % kBufferSize];
         }
+        return true;
     }
 
 

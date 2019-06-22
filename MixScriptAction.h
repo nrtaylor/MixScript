@@ -10,6 +10,8 @@ namespace MixScript {
     enum SourceAction : int {
         SA_NULL_ACTION,
         SA_UPDATE_GAIN,
+        SA_MULTIPLY_GAIN,
+        SA_MULTIPLY_TRACK_GAIN,
         SA_BYPASS_GAIN,
         SA_SET_RECORD,
         SA_RESET_AUTOMATION,
@@ -22,23 +24,28 @@ namespace MixScript {
             float r_value;
             int i_value;
         };
+        int explicit_target;
 
         SourceActionInfo() {
             action = SA_NULL_ACTION;
+            explicit_target = -1;
         }
 
         SourceActionInfo(const SourceAction _action) {
             action = _action;
+            explicit_target = -1;
         }
 
-        SourceActionInfo(const SourceAction _action, const float _r_value) {
+        SourceActionInfo(const SourceAction _action, const float _r_value, const int _explicit_target = -1) {
             action = _action;
             r_value = _r_value;
+            explicit_target = _explicit_target;
         }
 
-        SourceActionInfo(const SourceAction _action, const int _i_value) {
+        SourceActionInfo(const SourceAction _action, const int _i_value, const int _explicit_target = -1) {
             action = _action;
             i_value = _i_value;
+            explicit_target = _explicit_target;
         }
     };
 

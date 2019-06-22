@@ -3,6 +3,7 @@
 
 #include "WavAudioSource.h"
 #include "WavAudioBuffer.h"
+#include "nMath.h"
 #undef UNICODE // using single byte file loading routines
 #include <windows.h>
 #define _USE_MATH_DEFINES
@@ -15,14 +16,6 @@
 #include <iostream>
 #include <fstream>
 #include <string>
-
-namespace nMath {
-    template <typename T>
-    inline T Max(T lhs, T rhs)
-    {
-        return (lhs > rhs) ? lhs : rhs;
-    }
-}
 
 namespace MixScript
 {
@@ -358,12 +351,43 @@ namespace MixScript
         }
     }
 
+    static float GainToDb(const float gain)
+    {
+        return 20.f * log10f(gain);
+    }
+
+    static float DbToGain(const float db)
+    {
+        // return powf(10.f, db / 20.f);        
+        constexpr float ln10_20 = 2.30258512f / 20.f;
+        // 10^x = exp(ln(10)*x)
+        return expf(db * ln10_20);
+    }
+
     void Mixer::DoAction(const SourceActionInfo& action_info) {
+        WaveAudioSource& target = action_info.explicit_target >= 0 ?
+            (action_info.explicit_target ? *incoming.get() : *playing.get()) : Selected();
         switch (action_info.action)
         {
         case MixScript::SA_UPDATE_GAIN:
-            UpdateGainValue(action_info.r_value, 1.f);
+            UpdateGainValue(target, action_info.r_value, 1.f);
             break;
+        case MixScript::SA_MULTIPLY_GAIN:
+        {
+            const float minimuum_adjustment = DbToGain(0.5f) - 1.f;
+            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
+            const float next_gain = current_gain + minimuum_adjustment * action_info.r_value;
+            UpdateGainValue(target, nMath::Clamp(next_gain, 0.f, 1.f), 1.f);
+        }
+            break;
+        case MixScript::SA_MULTIPLY_TRACK_GAIN:
+        {
+            // TODO: This should be the gain adjustment for the track.
+            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
+            const float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
+            UpdateGainValue(target, DbToGain(db), 1.f);
+        }
+            break;        
         case MixScript::SA_BYPASS_GAIN:
             if (Selected().gain_control.bypass != (bool)action_info.i_value) {
                 Selected().gain_control.bypass = (bool)action_info.i_value;
@@ -390,8 +414,7 @@ namespace MixScript
         }
     }
 
-    void Mixer::UpdateGainValue(const float gain, const float interpolation_percent) {
-        WaveAudioSource& source = Selected();    
+    void Mixer::UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent) {
         const int cue_id = source.selected_marker;
         if (cue_id > 0 || !use_marker) {
             uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start :
@@ -607,6 +630,7 @@ namespace MixScript
 
         const float start_value = start_state.params.Apply(sample);
         float ratio = (float)t / (float)duration;
+        // If transition_samples is zero, assume threshold_percent is being used instead.
         if (end_state.transition_samples != 0) {
             if (t < duration - end_state.transition_samples) {
                 return start_value;
@@ -796,7 +820,7 @@ namespace MixScript
     }
 
     WaveAudioSource* Mixer::Render() {
-        const uint32_t playing_size = playing->audio_end - playing->audio_start;
+        const uint32_t playing_size = static_cast<uint32_t>(playing->audio_end - playing->audio_start);
         const uint32_t playing_offset = playing->cue_starts.front().start - playing->audio_start;
 
         const uint32_t incoming_size = incoming->audio_end - incoming->cue_starts.front().start;
