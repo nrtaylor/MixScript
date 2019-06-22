@@ -236,7 +236,8 @@ namespace MixScript
         };
 
         Region CurrentRegion() const;
-        bool use_marker;
+        // When true, only adjust params on the selected marker.
+        bool update_param_on_selected_marker;
 
         std::unique_ptr<WaveAudioSource> playing;
         std::unique_ptr<WaveAudioSource> incoming;

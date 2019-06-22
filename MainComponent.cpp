@@ -81,6 +81,7 @@ MainComponent::MainComponent() :
     addAndMakeVisible(visual_accentuate);
 
     record_automation.setButtonText("Record Automation");
+    record_automation.setToggleState(true, juce::NotificationType::dontSendNotification);
     record_automation.onClick = [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo(MixScript::SA_SET_RECORD, (int)record_automation.getToggleState()));
     };

@@ -152,7 +152,7 @@ namespace MixScript
         }
         const bool change_default = type == CT_DEFAULT && cue_starts.size() == 0;
         it = cue_starts.insert(it, { read_pos, change_default ? CT_LEFT_RIGHT : type });
-        selected_marker = 1 + (it - cue_starts.begin());
+        selected_marker = 1 + static_cast<int>(it - cue_starts.begin());
     }
 
     void WaveAudioSource::UpdateMarker(const CueType type) {
@@ -268,7 +268,7 @@ namespace MixScript
         return expf(db * log_10);
     }
 
-    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), use_marker(true) {
+    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), update_param_on_selected_marker(false) {
         modifier_mono = false;        
     }
 
@@ -389,13 +389,13 @@ namespace MixScript
         }
             break;        
         case MixScript::SA_BYPASS_GAIN:
-            if (Selected().gain_control.bypass != (bool)action_info.i_value) {
-                Selected().gain_control.bypass = (bool)action_info.i_value;
+            if (Selected().gain_control.bypass != (action_info.i_value != 0)) {
+                Selected().gain_control.bypass = action_info.i_value != 0;
                 return;
             }
             break;
         case MixScript::SA_SET_RECORD:
-            use_marker = !(bool)action_info.i_value;
+            update_param_on_selected_marker = !(action_info.i_value != 0);
             break;
         case MixScript::SA_RESET_AUTOMATION:            
             if (Selected().gain_control.movements.size() > 1) {
@@ -416,8 +416,8 @@ namespace MixScript
 
     void Mixer::UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent) {
         const int cue_id = source.selected_marker;
-        if (cue_id > 0 || !use_marker) {
-            uint8_t const * const marker_pos = use_marker ? source.cue_starts[cue_id - 1].start :
+        if (!update_param_on_selected_marker || cue_id > 0) {
+            uint8_t const * const marker_pos = update_param_on_selected_marker ? source.cue_starts[cue_id - 1].start :
                 (source.audio_start + source.last_read_pos);
             int gain_cue_id = 0;
             bool found = false;
@@ -522,7 +522,7 @@ namespace MixScript
         uint8_t const * const original_pos = source.read_pos;
         source.read_pos = cues[cue_start - 1].start;
         uint8_t const * const read_end_cue = cues[cue_end - 1].start;
-        const uint32_t delta = read_end_cue - cues[cue_start - 1].start;
+        const uint32_t delta = static_cast<uint32_t>(read_end_cue - cues[cue_start - 1].start);
         while (source.read_pos - source.audio_start > delta) {
             source.read_pos -= delta;
             source.AddMarker(CT_IMPLIED); // Will invalidate cue_start and cue_end
