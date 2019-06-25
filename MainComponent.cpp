@@ -230,8 +230,13 @@ bool MainComponent::keyPressed(const KeyPress &key)
         track_playing_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'F') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
+        if (key.getModifiers().isAltDown()) {
+            menuBar.showMenu(0);
+        }
+        else {
+            mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 0 });
+            track_playing_visuals->gain_automation.dirty = true;
+        }
     }
     else if (key_code == 'G') {
         mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -100.f, 0 });
@@ -458,10 +463,21 @@ StringArray MainComponent::getMenuBarNames()
 {
     StringArray names;
     names.add("File");
+    names.add("Markers");
     return names;
 }
 
-PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*menuName*/)
+enum MenuActions : int {
+    MS_Save = 1,
+    MS_Load,
+    MS_Export,
+    MS_Set_Sync,
+    MS_Align_Sync,
+    MS_Seek_Sync,
+    MS_Gen_Implied_Markers
+};
+
+PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& menuName)
 {
     PopupMenu menu;
 
@@ -471,10 +487,13 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
         menu.addItem(1, "Save");
         menu.addItem(2, "Load");
         menu.addItem(3, "Export");
+    }
+    else if (menuName == "Markers") {
+        menu.addItem(7, "Generate Implied Markers");
+        menu.addSeparator();
         menu.addItem(4, "Set Sync (S)");
         menu.addItem(5, "Align Sync");
-        menu.addItem(6, "Seek Sync");
-        menu.addItem(7, "Generate Implied Markers");
+        menu.addItem(6, "Seek Sync");        
     }
 
     return menu;
@@ -483,25 +502,25 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
 void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) {
     switch (menuItemID)
     {
-    case 1:
+    case MS_Save:
         SaveProject();
         break;
-    case 2:
+    case MS_Load:
         LoadProject();
         break;
-    case 3:
+    case MS_Export:
         ExportRender();
         break;
-    case 4:
+    case MS_Set_Sync:
         mixer->SetMixSync();
         break;
-    case 5:
+    case MS_Align_Sync:
         mixer->AlignPlayingSyncToIncomingStart();
         break;
-    case 6:
+    case MS_Seek_Sync:
         mixer->SeekSync();
         break;
-    case 7:
+    case MS_Gen_Implied_Markers:
     {
         const bool paused_state = playback_paused.load();
         playback_paused = true;
