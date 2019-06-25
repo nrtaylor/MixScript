@@ -473,7 +473,8 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& /*
         menu.addItem(3, "Export");
         menu.addItem(4, "Set Sync (S)");
         menu.addItem(5, "Align Sync");
-        menu.addItem(6, "Generate Implied Markers");
+        menu.addItem(6, "Seek Sync");
+        menu.addItem(7, "Generate Implied Markers");
     }
 
     return menu;
@@ -498,6 +499,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         mixer->AlignPlayingSyncToIncomingStart();
         break;
     case 6:
+        mixer->SeekSync();
+        break;
+    case 7:
     {
         const bool paused_state = playback_paused.load();
         playback_paused = true;

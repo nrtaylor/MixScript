@@ -535,6 +535,21 @@ namespace MixScript
         source.read_pos = original_pos;
     }
 
+    void Mixer::SeekSync() {
+        switch (selected_track)
+        {
+        case 0:
+            ResetToCue(mix_sync.playing_cue_id);
+            break;
+        case 1:
+            ResetToCue(mix_sync.incoming_cue_id);
+            break;
+        default:
+            break;
+        }
+        
+    }
+
     void Mixer::AlignPlayingSyncToIncomingStart() {
         if (incoming->selected_marker < mix_sync.incoming_cue_id) {
             OutputDebugString("Selected incoming marker is invalid or less than the incoming sync point.");
