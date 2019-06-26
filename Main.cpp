@@ -3,21 +3,20 @@
 
     This file was auto-generated!
 
-    It contains the basic startup code for a Juce application.
+    It contains the basic startup code for a JUCE application.
 
   ==============================================================================
 */
 
 #include "../JuceLibraryCode/JuceHeader.h"
-
-Component* createMainContentComponent();
+#include "MainComponent.h"
 
 //==============================================================================
-class WaterTest1Application  : public JUCEApplication
+class MixScriptApplication  : public JUCEApplication
 {
 public:
     //==============================================================================
-    WaterTest1Application() {}
+    MixScriptApplication() {}
 
     const String getApplicationName() override       { return ProjectInfo::projectName; }
     const String getApplicationVersion() override    { return ProjectInfo::versionString; }
@@ -56,17 +55,18 @@ public:
     //==============================================================================
     /*
         This class implements the desktop window that contains an instance of
-        our MainContentComponent class.
+        our MainComponent class.
     */
     class MainWindow    : public DocumentWindow
     {
     public:
         MainWindow (String name)  : DocumentWindow (name,
-                                                    Colours::lightgrey,
+                                                    Desktop::getInstance().getDefaultLookAndFeel()
+                                                                          .findColour (ResizableWindow::backgroundColourId),
                                                     DocumentWindow::allButtons)
         {
             setUsingNativeTitleBar (true);
-            setContentOwned (createMainContentComponent(), true);
+            setContentOwned (new MainComponent(), true);
             setResizable (true, true);
 
             centreWithSize (getWidth(), getHeight());
@@ -98,4 +98,4 @@ private:
 
 //==============================================================================
 // This macro generates the main() routine that launches the app.
-START_JUCE_APPLICATION (WaterTest1Application)
+START_JUCE_APPLICATION (MixScriptApplication)
