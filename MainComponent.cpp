@@ -17,6 +17,7 @@ MainComponent::MainComponent() :
     mixer(nullptr),
     track_playing_visuals(nullptr),
     track_incoming_visuals(nullptr),
+    selected_action(MixScript::SA_MULTIPLY_FADER_GAIN),
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
@@ -174,15 +175,15 @@ void MainComponent::releaseResources()
 void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
     float interpolation_percent = 0.f;
-    const float gain_amount = mixer->GainValue(interpolation_percent);
-    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().gain_control.bypass,
+    const float gain_amount = mixer->FaderGainValue(interpolation_percent);
+    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().fader_control.bypass,
         juce::NotificationType::dontSendNotification);
     SelectedVisuals()->peaks.dirty = true;
 }
 
 bool MainComponent::keyPressed(const KeyPress &key)
 {
-    const int key_code = key.getKeyCode();
+    const int key_code = key.getKeyCode();    
     bool refresh_controls = false;
     if (key_code >= (int)'0' && key_code <= (int)'9') {
         int cue_id = key_code - (int)'0';
@@ -192,41 +193,58 @@ bool MainComponent::keyPressed(const KeyPress &key)
             refresh_controls = true;
         }
         else {
-            queued_cue = cue_id;
+            if (key.getModifiers().isShiftDown()) {
+                MixScript::SourceAction prev_action = selected_action;
+                switch (key_code) {
+                case '1':
+                    selected_action = MixScript::SA_MULTIPLY_FADER_GAIN;
+                    break;
+                case '2':
+                    selected_action = MixScript::SA_MULTIPLY_TRACK_GAIN;                    
+                    break;
+                }
+                if (selected_action != prev_action) {
+                    track_playing_visuals->gain_automation.dirty = true;
+                    track_incoming_visuals->gain_automation.dirty = true;
+                }
+            }
+            else {
+                queued_cue = cue_id;
+            }
         }
         //return true; // TODO: Handle/not handled
     }
     // Begin Mix Controls
     else if (key_code == 'P') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 1.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 1.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == '[') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 3.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 3.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'L') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -1.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -1.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == ']') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == '\\') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -100.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'W') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 1.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 1.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'A') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -1.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -1.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'E') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 3.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 3.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'F') {
@@ -234,24 +252,24 @@ bool MainComponent::keyPressed(const KeyPress &key)
             menuBar.showMenu(0);
         }
         else {
-            mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 0 });
+            mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 0 });
             track_playing_visuals->gain_automation.dirty = true;
         }
     }
     else if (key_code == 'G') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -100.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'S') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -100.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == 'K') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, -100.f, 0 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 0 });
         track_playing_visuals->gain_automation.dirty = true;
-        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_MULTIPLY_GAIN, 100.f, 1 });
+        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     }
     else if (key_code == KeyPress::downKey) {
@@ -537,8 +555,9 @@ void MainComponent::timerCallback() {
     repaint();
 }
 
-void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixScript::WaveAudioSource* source,
-                      MixScript::TrackVisualCache* track_visuals, const bool selected, const int sync_cue_id) {
+void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixScript::WaveAudioSource* source, 
+        MixScript::TrackVisualCache* track_visuals, const bool selected, const int sync_cue_id, 
+        const MixScript::SourceAction selected_action) {
     MixScript::WavePeaks& peaks = track_visuals->peaks;
     MixScript::AmplitudeAutomation& automation = track_visuals->gain_automation;
 
@@ -647,7 +666,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     {
         if (automation.dirty || automation.values.size() != wave_width) {
             MixScript::ComputeParamAutomation(*source, wave_width, automation, track_visuals->zoom_factor,
-                track_visuals->scroll_offset);
+                track_visuals->scroll_offset, selected_action);
             automation.dirty = false;
         }
 
@@ -655,12 +674,13 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
         int previous_y = -1;
+        const int additional_offset = selected_action == MixScript::SA_MULTIPLY_TRACK_GAIN ? wave_height/2 : 0;
         for (const float value : automation.values) {
             const int offset_y = (int)((1.f - value) * wave_height) + 1;
             if (previous_y > 0 && (offset_y ^ previous_y) > 1) {
-                g.drawLine(x - 1, y + previous_y, x, y + offset_y);
+                g.drawLine(x - 1, y + previous_y + additional_offset, x, y + offset_y + additional_offset);
             }
-            g.fillRect(x++, y + offset_y, 1, 1);
+            g.fillRect(x++, y + offset_y + additional_offset, 1, 1);
             previous_y = offset_y;
         }
     }
@@ -682,12 +702,12 @@ void MainComponent::paint (Graphics& g)
     juce::Rectangle<int> audio_file = bounds;
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),
-            mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id);
+            mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id, selected_action);
     }
     audio_file.removeFromBottom(2);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_playing, track_playing_visuals.get(),
-            mixer->selected_track == 0, mixer->mix_sync.playing_cue_id);
+            mixer->selected_track == 0, mixer->mix_sync.playing_cue_id, selected_action);
     }
 }
 

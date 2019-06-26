@@ -10,7 +10,7 @@ namespace MixScript {
     enum SourceAction : int {
         SA_NULL_ACTION,
         SA_UPDATE_GAIN,
-        SA_MULTIPLY_GAIN,
+        SA_MULTIPLY_FADER_GAIN,
         SA_MULTIPLY_TRACK_GAIN,
         SA_BYPASS_GAIN,
         SA_SET_RECORD,

@@ -59,7 +59,7 @@ namespace MixScript
 
         MixerControl() : bypass(false) { movements.reserve(256); }
 
-        movement_type& Add(Params&& params, uint8_t const * const position);
+        movement_type& Add(const Params& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, const float sample) const;
         void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
@@ -116,6 +116,7 @@ namespace MixScript
         uint8_t const * const audio_start;
         uint8_t const * const audio_end;
         std::vector<Cue> cue_starts;
+        MixerControl<GainParams> fader_control;
         MixerControl<GainParams> gain_control;
         float bpm;
         int selected_marker;
@@ -148,7 +149,7 @@ namespace MixScript
     const uint8_t* ComputeWavePeaks(const WaveAudioSource& source, const uint32_t pixel_width, WavePeaks& peaks,
         const int zoom_factor);
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
-        const int zoom_factor, uint8_t const * const _scroll_offset);
+        const int zoom_factor, uint8_t const * const _scroll_offset, const MixScript::SourceAction selected_action);
 
     std::unique_ptr<WaveAudioSource> LoadWaveFile(const char* file_path);
     bool WriteWaveFile(const char* file_path, const std::unique_ptr<WaveAudioSource>& source);
@@ -222,7 +223,7 @@ namespace MixScript
         void UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent);
         void HandleAction(const SourceActionInfo& action_info);
         void ProcessActions();
-        float GainValue(float& interpolation_percent) const;
+        float FaderGainValue(float& interpolation_percent) const;
         void SetMixSync();
         void SeekSync();
         void AlignPlayingSyncToIncomingStart();

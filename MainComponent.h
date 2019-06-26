@@ -52,6 +52,7 @@ private:
     //==============================================================================
     // Your private member variables go here...
     std::unique_ptr<MixScript::Mixer> mixer;
+    MixScript::SourceAction selected_action; // TODO: Mixer should hold this value.
 
     std::unique_ptr<MixScript::TrackVisualCache> track_playing_visuals;
     std::unique_ptr<MixScript::TrackVisualCache> track_incoming_visuals;

@@ -274,6 +274,7 @@ namespace MixScript
 
     void Mixer::LoadPlayingFromFile(const char* file_path) {
         playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
+        playing->fader_control.Add(GainParams{ 1.f }, playing->audio_start);
         playing->gain_control.Add(GainParams{ 1.f }, playing->audio_start);
         if (incoming != nullptr) {
             MixScript::ResetToCue(incoming, 0);
@@ -282,7 +283,8 @@ namespace MixScript
 
     void Mixer::LoadIncomingFromFile(const char* file_path) {
         incoming = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
-        incoming->gain_control.Add(GainParams{ 0.f }, incoming->audio_start);
+        incoming->fader_control.Add(GainParams{ 0.f }, incoming->audio_start);
+        incoming->gain_control.Add(GainParams{ 1.f }, playing->audio_start);
         if (playing != nullptr) {
             MixScript::ResetToCue(playing, 0);
         }
@@ -295,12 +297,12 @@ namespace MixScript
         return cue_starts[selected_marker - 1].start;
     }
 
-    float Mixer::GainValue(float& interpolation_percent) const {
+    float Mixer::FaderGainValue(float& interpolation_percent) const {
         const WaveAudioSource& source = Selected();
         interpolation_percent = 0.0f;
         uint8_t const * const cue_pos = source.SelectedMarkerPos();
-        const float gain = source.gain_control.Apply(cue_pos, 1.f);
-        const auto& movements = source.gain_control.movements;
+        const float gain = source.fader_control.Apply(cue_pos, 1.f);
+        const auto& movements = source.fader_control.movements;
         auto it = std::find_if(movements.begin(), movements.end(),
             [&](const Movement<GainParams>& a) { return a.cue_pos == cue_pos; });
         if (it != movements.end()) {
@@ -364,57 +366,9 @@ namespace MixScript
         return expf(db * ln10_20);
     }
 
-    void Mixer::DoAction(const SourceActionInfo& action_info) {
-        WaveAudioSource& target = action_info.explicit_target >= 0 ?
-            (action_info.explicit_target ? *incoming.get() : *playing.get()) : Selected();
-        switch (action_info.action)
-        {
-        case MixScript::SA_UPDATE_GAIN:
-            UpdateGainValue(target, action_info.r_value, 1.f);
-            break;
-        case MixScript::SA_MULTIPLY_GAIN:
-        {
-            const float minimuum_adjustment = DbToGain(0.5f) - 1.f;
-            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
-            const float next_gain = current_gain + minimuum_adjustment * action_info.r_value;
-            UpdateGainValue(target, nMath::Clamp(next_gain, 0.f, 1.f), 1.f);
-        }
-            break;
-        case MixScript::SA_MULTIPLY_TRACK_GAIN:
-        {
-            // TODO: This should be the gain adjustment for the track.
-            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
-            const float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
-            UpdateGainValue(target, DbToGain(db), 1.f);
-        }
-            break;        
-        case MixScript::SA_BYPASS_GAIN:
-            if (Selected().gain_control.bypass != (action_info.i_value != 0)) {
-                Selected().gain_control.bypass = action_info.i_value != 0;
-                return;
-            }
-            break;
-        case MixScript::SA_SET_RECORD:
-            update_param_on_selected_marker = !(action_info.i_value != 0);
-            break;
-        case MixScript::SA_RESET_AUTOMATION:            
-            if (Selected().gain_control.movements.size() > 1) {
-                auto& movements = Selected().gain_control.movements;
-                movements.erase(movements.begin() + 1, movements.end());
-            }
-            break;
-        case MixScript::SA_RESET_AUTOMATION_IN_REGION:
-        {
-            const Region region = CurrentRegion();            
-            Selected().gain_control.ClearMovements(region.start, region.end);
-        }
-        break;
-        default:
-            break;
-        }
-    }
-
-    void Mixer::UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent) {
+    template<typename Params>
+    void UpdateGainValue(const WaveAudioSource& source, const Params& params, MixerControl<Params>& control,
+        const float interpolation_percent, const bool update_param_on_selected_marker) {
         const int cue_id = source.selected_marker;
         if (!update_param_on_selected_marker || cue_id > 0) {
             uint8_t const * const marker_pos = update_param_on_selected_marker ? source.cue_starts[cue_id - 1].start :
@@ -422,11 +376,11 @@ namespace MixScript
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
-            for (Movement<GainParams>& movement : source.gain_control.movements) {
+            for (Movement<Params>& movement : control.movements) {
                 // TODO: Decide if it is easier to separate automation points from cues, or if
                 // automation and cues should stay in sync.
                 if (movement.cue_pos == marker_pos) {
-                    movement.params.gain = gain;
+                    movement.params = params;
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                     found = true;
@@ -438,18 +392,74 @@ namespace MixScript
                 ++gain_cue_id;
             }
             if (!found) {
-                if (gain_cue_id >= source.gain_control.movements.size()) {
-                    Movement<GainParams>& movement = source.gain_control.Add(GainParams{ gain }, marker_pos);
+                if (gain_cue_id >= control.movements.size()) {
+                    Movement<Params>& movement = control.Add(params, marker_pos);
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                 }
                 else {
-                    source.gain_control.movements.insert(source.gain_control.movements.begin() + gain_cue_id,
-                        Movement<GainParams>{ GainParams{ gain }, MFT_LINEAR, interpolation_percent,
-                        (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos } );
+                    control.movements.insert(control.movements.begin() + gain_cue_id,
+                        Movement<Params>{ params, MFT_LINEAR, interpolation_percent,
+                        (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos });
                 }
             }
         }
+    }
+
+    void Mixer::DoAction(const SourceActionInfo& action_info) {
+        WaveAudioSource& target = action_info.explicit_target >= 0 ?
+            (action_info.explicit_target ? *incoming.get() : *playing.get()) : Selected();
+        switch (action_info.action)
+        {
+        case MixScript::SA_UPDATE_GAIN:
+            UpdateGainValue(target, action_info.r_value, 1.f);
+            break;
+        case MixScript::SA_MULTIPLY_FADER_GAIN:
+        {
+            const float minimuum_adjustment = DbToGain(0.5f) - 1.f;
+            const float current_gain = target.fader_control.Apply(target.audio_start + target.last_read_pos, 1.f);
+            const float next_gain = current_gain + minimuum_adjustment * action_info.r_value;
+            UpdateGainValue(target, nMath::Clamp(next_gain, 0.f, 1.f), 1.f);
+        }
+            break;
+        case MixScript::SA_MULTIPLY_TRACK_GAIN:
+        {
+            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
+            const float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
+            UpdateGainValue(target, DbToGain(db), 1.f);
+            MixScript::UpdateGainValue(target, GainParams{ DbToGain(db) }, target.gain_control, 1.f,
+                update_param_on_selected_marker);
+        }
+            break;        
+        case MixScript::SA_BYPASS_GAIN:
+            if (Selected().fader_control.bypass != (action_info.i_value != 0)) {
+                Selected().fader_control.bypass = action_info.i_value != 0;
+                return;
+            }
+            break;
+        case MixScript::SA_SET_RECORD:
+            update_param_on_selected_marker = !(action_info.i_value != 0);
+            break;
+        case MixScript::SA_RESET_AUTOMATION:            
+            if (Selected().fader_control.movements.size() > 1) {
+                auto& movements = Selected().fader_control.movements;
+                movements.erase(movements.begin() + 1, movements.end());
+            }
+            break;
+        case MixScript::SA_RESET_AUTOMATION_IN_REGION:
+        {
+            const Region region = CurrentRegion();            
+            Selected().fader_control.ClearMovements(region.start, region.end);
+        }
+        break;
+        default:
+            break;
+        }
+    }
+
+    void Mixer::UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent) {
+        MixScript::UpdateGainValue(source, GainParams{ gain }, source.fader_control, interpolation_percent,
+            update_param_on_selected_marker);
     }
 
     WaveAudioSource& Mixer::Selected() {
@@ -613,7 +623,7 @@ namespace MixScript
     }
 
     template<typename Params>
-    Movement<Params>& MixerControl<Params>::Add(Params&& params, uint8_t const * const position) {
+    Movement<Params>& MixerControl<Params>::Add(const Params& params, uint8_t const * const position) {
         movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, 0, position });
         return movements.back();
     }
@@ -685,11 +695,11 @@ namespace MixScript
             uint32_t cue_id = 0;
             uint8_t const * const playing_read_pos = playing_.read_pos;
             bool on_cue = playing_.Cue(playing_read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
-            left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
-            right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
+            left = playing_.fader_control.Apply(playing_read_pos, playing_.Read());
+            right = playing_.fader_control.Apply(playing_read_pos, playing_.Read());
             if (playing_.read_pos >= front) {
-                left += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
-                right += incoming_.gain_control.Apply(incoming_.read_pos, incoming_.Read());
+                left += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
+                right += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
             }
             if (on_cue) {
                 MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));
@@ -934,7 +944,7 @@ namespace MixScript
     }
 
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,
-        const int zoom_factor, uint8_t const * const _scroll_offset) {
+        const int zoom_factor, uint8_t const * const _scroll_offset, const MixScript::SourceAction selected_action) {
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = source.audio_end - source.audio_start;
         const float bytes_per_pixel = zoom_amount * delta / (float)pixel_width;
@@ -942,10 +952,12 @@ namespace MixScript
         automation.values.resize(pixel_width);
         uint8_t const * const scroll_offset = _scroll_offset != nullptr ? _scroll_offset :
             ZoomScrollOffsetPos(source, source.audio_start + source.last_read_pos, pixel_width, zoom_amount);
+        const MixerControl<GainParams>* control = (selected_action == MixScript::SA_MULTIPLY_FADER_GAIN) ?
+            &source.fader_control : &source.gain_control;
         const uint8_t* read_pos = scroll_offset;
-        int i = 0;
+        int i = 0;        
         for (float& value : automation.values) {
-            value = source.gain_control.Apply(read_pos, 1.f);
+            value = control->Apply(read_pos, 1.f);
             ++i;
             read_pos = scroll_offset + (uint32_t)(i * bytes_per_pixel);
         }
