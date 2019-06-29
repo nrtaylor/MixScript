@@ -425,8 +425,10 @@ namespace MixScript
         case MixScript::SA_MULTIPLY_TRACK_GAIN:
         {
             const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, 1.f);
-            const float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
-            UpdateGainValue(target, DbToGain(db), 1.f);
+            float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
+            db = nMath::Clamp(db, -96.f, 12.f);
+            //char debug_msg[256]; sprintf(&debug_msg[0], "Next db %.3f\n", db);
+            //OutputDebugString(debug_msg);
             MixScript::UpdateGainValue(target, GainParams{ DbToGain(db) }, target.gain_control, 1.f,
                 update_param_on_selected_marker);
         }
@@ -695,8 +697,10 @@ namespace MixScript
             uint32_t cue_id = 0;
             uint8_t const * const playing_read_pos = playing_.read_pos;
             bool on_cue = playing_.Cue(playing_read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
-            left = playing_.fader_control.Apply(playing_read_pos, playing_.Read());
-            right = playing_.fader_control.Apply(playing_read_pos, playing_.Read());
+            left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
+            left = playing_.fader_control.Apply(playing_read_pos, left);
+            right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
+            right = playing_.fader_control.Apply(playing_read_pos, right);
             if (playing_.read_pos >= front) {
                 left += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
                 right += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
@@ -958,6 +962,14 @@ namespace MixScript
         int i = 0;        
         for (float& value : automation.values) {
             value = control->Apply(read_pos, 1.f);
+            // Center around 1.f
+            if (selected_action == MixScript::SA_MULTIPLY_TRACK_GAIN) {                
+                if (value > 1.f) {
+                    // Max value is +12 db or 4.f gain.
+                    value = (value - 1.f) * 0.3333f + 1.f;
+                }
+                value *= 0.5f;                
+            }
             ++i;
             read_pos = scroll_offset + (uint32_t)(i * bytes_per_pixel);
         }

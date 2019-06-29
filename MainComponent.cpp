@@ -400,7 +400,7 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             const auto& format = mixer.Selected().format;
             const int click_offset = (uint32_t)(samples_per_pixel * offset) * format.channels * format.bit_rate / 8;
             uint8_t const * const position = visuals.scroll_offset + click_offset;
-            MixScript::ResetToPos(mixer.Selected(), position);
+            MixScript::ResetToPos(mixer.Selected(), position); // TODO: This isn't thread safe!
             if (MixScript::Cue* cue = MixScript::TrySelectMarker(mixer.Selected(), position,
                 static_cast<int>(2 * samples_per_pixel * format.channels * format.bit_rate / 8))) {
                 mc->LoadControls();
@@ -674,13 +674,12 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
         int previous_y = -1;
-        const int additional_offset = selected_action == MixScript::SA_MULTIPLY_TRACK_GAIN ? wave_height/2 : 0;
         for (const float value : automation.values) {
             const int offset_y = (int)((1.f - value) * wave_height) + 1;
             if (previous_y > 0 && (offset_y ^ previous_y) > 1) {
-                g.drawLine(x - 1, y + previous_y + additional_offset, x, y + offset_y + additional_offset);
+                g.drawLine(x - 1, y + previous_y, x, y + offset_y);
             }
-            g.fillRect(x++, y + offset_y + additional_offset, 1, 1);
+            g.fillRect(x++, y + offset_y, 1, 1);
             previous_y = offset_y;
         }
     }
