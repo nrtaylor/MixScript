@@ -399,8 +399,8 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             const float samples_per_pixel = visuals.SamplesPerPixel(mixer.Selected());
             const auto& format = mixer.Selected().format;
             const int click_offset = (uint32_t)(samples_per_pixel * offset) * format.channels * format.bit_rate / 8;
-            uint8_t const * const position = visuals.scroll_offset + click_offset;
-            MixScript::ResetToPos(mixer.Selected(), position); // TODO: This isn't thread safe!
+            uint8_t const * const position = visuals.scroll_offset + click_offset;            
+            mixer.HandleAction(MixScript::SourceActionInfo(MixScript::SA_CUE_POSITION, position));
             if (MixScript::Cue* cue = MixScript::TrySelectMarker(mixer.Selected(), position,
                 static_cast<int>(2 * samples_per_pixel * format.channels * format.bit_rate / 8))) {
                 mc->LoadControls();

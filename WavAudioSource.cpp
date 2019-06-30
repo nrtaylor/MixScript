@@ -454,6 +454,9 @@ namespace MixScript
             Selected().fader_control.ClearMovements(region.start, region.end);
         }
         break;
+        case MixScript::SA_CUE_POSITION:
+            MixScript::ResetToPos(target, action_info.position);
+            break;
         default:
             break;
         }

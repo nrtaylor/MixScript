@@ -15,7 +15,8 @@ namespace MixScript {
         SA_BYPASS_GAIN,
         SA_SET_RECORD,
         SA_RESET_AUTOMATION,
-        SA_RESET_AUTOMATION_IN_REGION
+        SA_RESET_AUTOMATION_IN_REGION,
+        SA_CUE_POSITION
     };
 
     struct SourceActionInfo {
@@ -24,6 +25,7 @@ namespace MixScript {
             float r_value;
             int i_value;
         };
+        uint8_t const * position;
         int explicit_target;
 
         SourceActionInfo() {
@@ -45,6 +47,12 @@ namespace MixScript {
         SourceActionInfo(const SourceAction _action, const int _i_value, const int _explicit_target = -1) {
             action = _action;
             i_value = _i_value;
+            explicit_target = _explicit_target;
+        }
+
+        SourceActionInfo(const SourceAction _action, uint8_t const * const _position, const int _explicit_target = -1) {
+            action = _action;
+            position = _position;
             explicit_target = _explicit_target;
         }
     };
