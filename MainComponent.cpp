@@ -7,7 +7,7 @@
 */
 
 #include "MainComponent.h"
-#include "WavAudioSource.h"
+#include "MixScriptMixer.h"
 
 #include <windows.h> // for debug
 
