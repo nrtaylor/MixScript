@@ -126,6 +126,7 @@ namespace MixScript
         std::atomic_int32_t last_read_pos;
         uint8_t* write_pos;
         float Read();
+        float ReadAndProcess();
         float Read(const uint8_t** read_pos_) const;
         void Write(const float value);
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;

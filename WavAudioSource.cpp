@@ -418,8 +418,8 @@ namespace MixScript
         }
             break;        
         case MixScript::SA_BYPASS_GAIN:
-            if (Selected().fader_control.bypass != (action_info.i_value != 0)) {
-                Selected().fader_control.bypass = action_info.i_value != 0;
+            if (control.bypass != (action_info.i_value != 0)) {
+                control.bypass = action_info.i_value != 0;
                 return;
             }
             break;
@@ -670,27 +670,32 @@ namespace MixScript
         return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 
+    float WaveAudioSource::ReadAndProcess() {
+        uint8_t const * const starting_read_pos = read_pos;
+        float sample = gain_control.Apply(starting_read_pos, Read());
+        sample = fader_control.Apply(starting_read_pos, sample);
+        return sample;
+    }
+
     template<class T>
     void Mixer::Mix(T& output_writer, int samples_to_read) {
 
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start : playing_.audio_start;        
+        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start :
+            playing_.audio_start;        
         float left = 0;
         float right = 0;
         const bool make_mono = modifier_mono;
         for (int32_t i = 0; i < samples_to_read; ++i) {
-            uint32_t cue_id = 0;
-            uint8_t const * const playing_read_pos = playing_.read_pos;
-            bool on_cue = playing_.Cue(playing_read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
-            left = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
-            left = playing_.fader_control.Apply(playing_read_pos, left);
-            right = playing_.gain_control.Apply(playing_read_pos, playing_.Read());
-            right = playing_.fader_control.Apply(playing_read_pos, right);
+            uint32_t cue_id = 0;            
+            bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
+            left = playing_.ReadAndProcess();
+            right = playing_.ReadAndProcess();            
             if (playing_.read_pos >= front) {
-                left += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
-                right += incoming_.fader_control.Apply(incoming_.read_pos, incoming_.Read());
+                left += incoming_.ReadAndProcess();
+                right += incoming_.ReadAndProcess();
             }
             if (on_cue) {
                 MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));

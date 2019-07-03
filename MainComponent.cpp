@@ -483,6 +483,7 @@ StringArray MainComponent::getMenuBarNames()
     StringArray names;
     names.add("File");
     names.add("Markers");
+    names.add("Controls");
     return names;
 }
 
@@ -493,7 +494,9 @@ enum MenuActions : int {
     MS_Set_Sync,
     MS_Align_Sync,
     MS_Seek_Sync,
-    MS_Gen_Implied_Markers
+    MS_Gen_Implied_Markers,
+    MS_Control_Fader,
+    MS_Control_Gain
 };
 
 PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& menuName)
@@ -502,17 +505,20 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& me
 
     if (topLevelMenuIndex == 0)
     {
-        // TODO: Commands should be managed by the Application in Main.cpp.
-        menu.addItem(1, "Save");
-        menu.addItem(2, "Load");
-        menu.addItem(3, "Export");
+        menu.addItem(MS_Save, "Save");
+        menu.addItem(MS_Load, "Load");
+        menu.addItem(MS_Export, "Export");
     }
     else if (menuName == "Markers") {
-        menu.addItem(7, "Generate Implied Markers");
+        menu.addItem(MS_Gen_Implied_Markers, "Generate Implied Markers");
         menu.addSeparator();
-        menu.addItem(4, "Set Sync (S)");
-        menu.addItem(5, "Align Sync");
-        menu.addItem(6, "Seek Sync");        
+        menu.addItem(MS_Set_Sync, "Set Sync (S)");
+        menu.addItem(MS_Align_Sync, "Align Sync");
+        menu.addItem(MS_Gen_Implied_Markers, "Seek Sync");
+    }
+    else if (menuName == "Controls") {
+        menu.addItem(MS_Control_Gain, "Track Gain");
+        menu.addItem(MS_Control_Fader, "Fader");
     }
 
     return menu;
@@ -547,8 +553,18 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         playback_paused = paused_state;
     }
         break;
+    case MS_Control_Fader:
+        mixer->SetSelectedAction(MixScript::SA_MULTIPLY_FADER_GAIN);
+        break;
+    case MS_Control_Gain:
+        mixer->SetSelectedAction(MixScript::SA_MULTIPLY_TRACK_GAIN);
+        break;
     default:
         break;
+    }
+    if (menuItemID >= MS_Control_Fader && menuItemID <= MS_Control_Gain) {
+        track_playing_visuals->gain_automation.dirty = true;
+        track_incoming_visuals->gain_automation.dirty = true;
     }
 }
 
