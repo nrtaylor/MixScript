@@ -136,6 +136,9 @@ namespace MixScript
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
+        const MixerControl<GainParams>& GetControl(const MixScript::SourceAction action) const;
+        MixerControl<GainParams>& GetControl(const MixScript::SourceAction action);
+
         ~WaveAudioSource();
 
         WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
@@ -218,6 +221,8 @@ namespace MixScript
 
         int MarkerLeft() const;
         int MarkerRight() const;
+        MixScript::SourceAction SelectedAction() const { return selected_action.load(); }
+        void SetSelectedAction(const MixScript::SourceAction action) { selected_action.store(action); }
 
         void SetSelectedMarker(int cue_id);
         void UpdateGainValue(WaveAudioSource& source, const float gain, const float interpolation_percent);
@@ -245,6 +250,7 @@ namespace MixScript
         std::unique_ptr<WaveAudioSource> incoming;
 
         ActionQueue actions;
+        std::atomic<MixScript::SourceAction> selected_action;
         void DoAction(const SourceActionInfo& action_info);
     };
 

@@ -22,19 +22,6 @@ namespace MixScript
     const uint32_t kMaxAudioEsimatedDuration = 10 * 60; // minutes
     const uint32_t kMaxAudioBufferSize = kMaxAudioEsimatedDuration * 48000 * 2 * 2 + 1024; // sample rate * byte_rate * channels
 
-    uint32_t ByteRate(const WaveAudioFormat& format) {
-        return format.bit_rate / 8;
-    }
-    
-    float BytesToTimeMs(const WaveAudioFormat& format, const uint64_t& bytes) {
-        return 1000.f * (float)bytes / (float)(ByteRate(format) * format.channels * format.sample_rate);
-    }
-
-    // TODO: float or round to int
-    float TimeMsToBytes(const WaveAudioFormat& format, const float& duration) {
-        return duration * (float)(ByteRate(format) * format.channels * format.sample_rate) / 1000.f;
-    }
-
     float WaveAudioSource::Read() {
         if (read_pos >= audio_end) {
             return 0.f;
@@ -262,13 +249,9 @@ namespace MixScript
             ++right;
         }
     }
-
-    float DecibelToGain(const float db) {
-        static const float log_10 = 2.302585f;
-        return expf(db * log_10);
-    }
-
-    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), update_param_on_selected_marker(false) {
+    
+    Mixer::Mixer() : playing(nullptr), incoming(nullptr), selected_track(0), update_param_on_selected_marker(false),
+        selected_action(MixScript::SA_MULTIPLY_FADER_GAIN) {
         modifier_mono = false;        
     }
 
@@ -409,6 +392,7 @@ namespace MixScript
     void Mixer::DoAction(const SourceActionInfo& action_info) {
         WaveAudioSource& target = action_info.explicit_target >= 0 ?
             (action_info.explicit_target ? *incoming.get() : *playing.get()) : Selected();
+        auto& control = target.GetControl(selected_action);
         switch (action_info.action)
         {
         case MixScript::SA_UPDATE_GAIN:
@@ -443,15 +427,15 @@ namespace MixScript
             update_param_on_selected_marker = !(action_info.i_value != 0);
             break;
         case MixScript::SA_RESET_AUTOMATION:            
-            if (Selected().fader_control.movements.size() > 1) {
-                auto& movements = Selected().fader_control.movements;
+            if (control.movements.size() > 1) {
+                auto& movements = control.movements;
                 movements.erase(movements.begin() + 1, movements.end());
             }
             break;
         case MixScript::SA_RESET_AUTOMATION_IN_REGION:
         {
             const Region region = CurrentRegion();            
-            Selected().fader_control.ClearMovements(region.start, region.end);
+            control.ClearMovements(region.start, region.end);
         }
         break;
         case MixScript::SA_CUE_POSITION:
@@ -948,6 +932,20 @@ namespace MixScript
         const float samples_per_pixel = zoom_amount * delta / (float)pixel_width;
 
         return samples_per_pixel;
+    }
+
+    MixerControl<GainParams>& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
+        if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
+            return fader_control;
+        }
+        return gain_control;
+    }
+
+    const MixerControl<GainParams>& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
+        if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
+            return fader_control;
+        }
+        return gain_control;
     }
 
     void ComputeParamAutomation(const WaveAudioSource& source, const uint32_t pixel_width, AmplitudeAutomation& automation,

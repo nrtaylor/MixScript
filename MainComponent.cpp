@@ -16,8 +16,7 @@ MainComponent::MainComponent() :
     menuBar(this),
     mixer(nullptr),
     track_playing_visuals(nullptr),
-    track_incoming_visuals(nullptr),
-    selected_action(MixScript::SA_MULTIPLY_FADER_GAIN),
+    track_incoming_visuals(nullptr),    
     queued_cue(0)
 {
     addAndMakeVisible(menuBar);
@@ -183,8 +182,9 @@ void MainComponent::LoadControls() {
 
 bool MainComponent::keyPressed(const KeyPress &key)
 {
-    const int key_code = key.getKeyCode();    
+    const int key_code = key.getKeyCode();
     bool refresh_controls = false;
+    const MixScript::SourceAction selected_action = mixer->SelectedAction();
     if (key_code >= (int)'0' && key_code <= (int)'9') {
         int cue_id = key_code - (int)'0';
         if (playback_paused &&
@@ -194,16 +194,17 @@ bool MainComponent::keyPressed(const KeyPress &key)
         }
         else {
             if (key.getModifiers().isShiftDown()) {
-                MixScript::SourceAction prev_action = selected_action;
+                MixScript::SourceAction next_action = selected_action;
                 switch (key_code) {
                 case '1':
-                    selected_action = MixScript::SA_MULTIPLY_FADER_GAIN;
+                    next_action = MixScript::SA_MULTIPLY_FADER_GAIN;
                     break;
                 case '2':
-                    selected_action = MixScript::SA_MULTIPLY_TRACK_GAIN;                    
+                    next_action = MixScript::SA_MULTIPLY_TRACK_GAIN;
                     break;
                 }
-                if (selected_action != prev_action) {
+                if (next_action != mixer->SelectedAction()) {
+                    mixer->SetSelectedAction(next_action);
                     track_playing_visuals->gain_automation.dirty = true;
                     track_incoming_visuals->gain_automation.dirty = true;
                 }
@@ -701,12 +702,12 @@ void MainComponent::paint (Graphics& g)
     juce::Rectangle<int> audio_file = bounds;
     if (const MixScript::WaveAudioSource* track_incoming = mixer->Incoming()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_incoming, track_incoming_visuals.get(),
-            mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id, selected_action);
+            mixer->selected_track == 1, mixer->mix_sync.incoming_cue_id, mixer->SelectedAction());
     }
     audio_file.removeFromBottom(2);
     if (const MixScript::WaveAudioSource* track_playing = mixer->Playing()) {
         PaintAudioSource(g, audio_file.removeFromBottom(track_height), track_playing, track_playing_visuals.get(),
-            mixer->selected_track == 0, mixer->mix_sync.playing_cue_id, selected_action);
+            mixer->selected_track == 0, mixer->mix_sync.playing_cue_id, mixer->SelectedAction());
     }
 }
 
