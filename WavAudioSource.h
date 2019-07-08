@@ -14,17 +14,6 @@ namespace MixScript
 {
     struct WaveAudioBuffer;
 
-    struct DerivativeFilter {
-        DerivativeFilter() : y(0.f), bypass(false) {}
-        float y;
-        bool bypass;
-        float Compute(const float x) {
-            const float sample = x - y;
-            y = x;
-            return !bypass ? sample : x;
-        }
-    };
-
     struct GainParams {
         float gain;        
 
@@ -65,32 +54,6 @@ namespace MixScript
     };
 
     template struct MixerControl<GainParams>; // TODO: Clean-up explicit definition warnings.
-   
-    struct WavePeaks {
-        struct WavePeak {
-            float min;
-            float max;
-            const uint8_t * start;
-            const uint8_t * end;
-        };
-        std::atomic_bool dirty;
-        std::vector<WavePeak> peaks;
-
-        static constexpr int kMaxChannels = 8;
-        std::array<DerivativeFilter, kMaxChannels> filters;
-
-        WavePeaks() {            
-            SetFilterBypass(true);
-            dirty = false; // Set last
-        }
-
-        void SetFilterBypass(const bool bypass) {
-            for (DerivativeFilter& filter : filters) {
-                filter.bypass = bypass;
-            }
-            dirty = true;
-        }
-    };
 
     enum CueType : int {
         CT_DEFAULT,

@@ -10,6 +10,7 @@
 #include "MixScriptAction.h"
 #include "MixScriptShared.h"
 #include "WavAudioSource.h"
+#include "nFilters.h"
 
 namespace MixScript
 {
@@ -114,6 +115,32 @@ namespace MixScript
 
         AmplitudeAutomation() {
             dirty = false;
+        }
+    };
+
+    struct WavePeaks {
+        struct WavePeak {
+            float min;
+            float max;
+            const uint8_t * start;
+            const uint8_t * end;
+        };
+        std::atomic_bool dirty;
+        std::vector<WavePeak> peaks;
+
+        static constexpr int kMaxChannels = 8;
+        std::array<nMath::DerivativeFilter, kMaxChannels> filters;
+
+        WavePeaks() {
+            SetFilterBypass(true);
+            dirty = false; // Set last
+        }
+
+        void SetFilterBypass(const bool bypass) {
+            for (nMath::DerivativeFilter& filter : filters) {
+                filter.bypass = bypass;
+            }
+            dirty = true;
         }
     };
 

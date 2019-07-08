@@ -586,7 +586,7 @@ namespace MixScript
             }
             for (; i < spp; ++i, ++channel) {
                 for (uint32_t c = 0; c < source.format.channels; ++c) {
-                    DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
+                    nMath::DerivativeFilter& active_filter = peaks.filters[channel % source.format.channels];
                     const float sample = active_filter.Compute(source.Read(&read_pos));
                     if (sample > peak.max) {
                         peak.max = sample;
