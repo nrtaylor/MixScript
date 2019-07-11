@@ -257,8 +257,8 @@ namespace MixScript
         return cue_starts[selected_marker - 1].start;
     }
 
-    template <typename Params>
-    void MixerControl<Params>::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
+    template <typename Params, typename State>
+    void MixerControl<Params, State>::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
         if (!movements.empty()) {
             movements.erase(
                 std::remove_if(movements.begin(), movements.end(), [&](const MixerControl::movement_type& movement) {
@@ -267,7 +267,9 @@ namespace MixScript
         }
     }
 
-    void UpdateGainValue(const WaveAudioSource& source, const GainParams& params, MixerControl<GainParams>& control,
+    template <typename Params, typename State>
+    void ParamsUpdater<Params, State>::UpdateMovement(const WaveAudioSource& source,
+        const Params& params, MixerControl<Params, State>& control,
         const float interpolation_percent, const bool update_param_on_selected_marker) {
         const int cue_id = source.selected_marker;
         if (!update_param_on_selected_marker || cue_id > 0) {
@@ -276,7 +278,7 @@ namespace MixScript
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
-            for (Movement<GainParams>& movement : control.movements) {
+            for (Movement<Params>& movement : control.movements) {
                 // TODO: Decide if it is easier to separate automation points from cues, or if
                 // automation and cues should stay in sync.
                 if (movement.cue_pos == marker_pos) {
@@ -293,13 +295,13 @@ namespace MixScript
             }
             if (!found) {
                 if (gain_cue_id >= control.movements.size()) {
-                    Movement<GainParams>& movement = control.Add(params, marker_pos);
+                    Movement<Params>& movement = control.Add(params, marker_pos);
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                 }
                 else {
                     control.movements.insert(control.movements.begin() + gain_cue_id,
-                        Movement<GainParams>{ params, MFT_LINEAR, interpolation_percent,
+                        Movement<Params>{ params, MFT_LINEAR, interpolation_percent,
                         (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos });
                 }
             }
@@ -321,14 +323,14 @@ namespace MixScript
         return param;
     }
 
-    template<typename Params>
-    Movement<Params>& MixerControl<Params>::Add(const Params& params, uint8_t const * const position) {
+    template<typename Params, typename State>
+    Movement<Params>& MixerControl<Params, State>::Add(const Params& params, uint8_t const * const position) {
         movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, 0, position });
         return movements.back();
     }
 
-    template<typename Params>
-    float MixerControl<Params>::Apply(uint8_t const * const position, const float sample) const {
+    template<typename Params, typename State>
+    float MixerControl<Params, State>::Apply(uint8_t const * const position, State& state, const float sample) const {
         if (movements.empty() ||
             bypass) {
             return sample;
@@ -340,10 +342,10 @@ namespace MixScript
         });
 
         if (interval == movements.begin()) {
-            return movements.front().params.Apply(sample);
+            return movements.front().params.Apply(sample, state);
         }
         if (interval == movements.end()) {
-            return movements.back().params.Apply(sample);
+            return movements.back().params.Apply(sample, state);
         }
 
         const Movement<Params>& start_state = *(interval - 1);
@@ -352,7 +354,7 @@ namespace MixScript
         const int64_t t = (int64_t)(position - start_state.cue_pos);            
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
 
-        const float start_value = start_state.params.Apply(sample);
+        const float start_value = start_state.params.Apply(sample, state);
         float ratio = (float)t / (float)duration;
         // If transition_samples is zero, assume threshold_percent is being used instead.
         if (end_state.transition_samples != 0) {
@@ -376,14 +378,17 @@ namespace MixScript
             }
         }
 
-        const float end_value = end_state.params.Apply(sample);
+        const float end_value = end_state.params.Apply(sample, state);
         return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 
-    float WaveAudioSource::ReadAndProcess() {
+    float WaveAudioSource::ReadAndProcess(const int channel) {
         uint8_t const * const starting_read_pos = read_pos;
-        float sample = gain_control.Apply(starting_read_pos, Read());
-        sample = fader_control.Apply(starting_read_pos, sample);
+        bool unused = false;
+        float sample = gain_control.Apply(starting_read_pos, unused, Read());
+        sample = fader_control.Apply(starting_read_pos, unused, sample);
+        sample = lp_shelf_control.Apply(starting_read_pos, lp_shelf_filters[channel], sample);        
+        // sample = low_shelf_control.Apply();
         return sample;
     }
     
@@ -427,14 +432,14 @@ namespace MixScript
         return false;
     }
     
-    MixerControl<GainParams>& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
+    MixerControl<GainParams, bool>& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
         if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
             return fader_control;
         }
         return gain_control;
     }
 
-    const MixerControl<GainParams>& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
+    const MixerControl<GainParams, bool>& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
         if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
             return fader_control;
         }

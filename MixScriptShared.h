@@ -26,12 +26,16 @@ namespace MixScript {
         return format.bit_rate / 8;
     }
 
-    inline float BytesToTimeMs(const WaveAudioFormat& format, const uint64_t& bytes) {
+    inline float BytesToTimeMs(const WaveAudioFormat& format, const uint64_t bytes) {
         return 1000.f * (float)bytes / (float)(ByteRate(format) * format.channels * format.sample_rate);
     }
 
     // TODO: float or round to int
-    inline float TimeMsToBytes(const WaveAudioFormat& format, const float& duration) {
+    inline float TimeMsToBytes(const WaveAudioFormat& format, const float duration) {
         return duration * (float)(ByteRate(format) * format.channels * format.sample_rate) / 1000.f;
+    }
+
+    inline float FrequencyToPercent(const WaveAudioFormat& format, const float& frequency) {
+        return frequency / format.sample_rate;
     }
 }

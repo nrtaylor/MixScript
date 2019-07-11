@@ -9,6 +9,7 @@
 
 #include "MixScriptAction.h"
 #include "MixScriptShared.h"
+#include "nFilters.h"
 
 namespace MixScript
 {
@@ -17,8 +18,18 @@ namespace MixScript
     struct GainParams {
         float gain;        
 
-        float Apply(const float sample) const {
+        float Apply(const float sample, bool unused) const {
             return sample * gain;
+        }
+    };
+
+    struct BiquadFilterParams {
+        nMath::TwoPoleFilterParams filter;
+        float gain;
+
+        float Apply(const float sample, nMath::TwoPoleFilter& filter_state) const {
+            float processed = filter_state.Apply(filter, sample);
+            return processed * gain;
         }
     };
 
@@ -38,7 +49,7 @@ namespace MixScript
         const uint8_t* cue_pos;
     };
 
-    template<typename Params>
+    template<typename Params, typename State>
     struct MixerControl {        
         typedef Movement<Params> movement_type;
         std::vector<movement_type> movements;
@@ -49,11 +60,12 @@ namespace MixScript
         MixerControl() : bypass(false) { movements.reserve(256); }
 
         movement_type& Add(const Params& params, uint8_t const * const position);
-        float Apply(uint8_t const * const position, const float sample) const;
+        float Apply(uint8_t const * const position, State& state, const float sample) const;
         void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
 
-    template struct MixerControl<GainParams>; // TODO: Clean-up explicit definition warnings.
+    template struct MixerControl<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
+    template struct MixerControl<BiquadFilterParams, nMath::TwoPoleFilter>;
 
     enum CueType : int {
         CT_DEFAULT,
@@ -73,8 +85,10 @@ namespace MixScript
         uint8_t const * const audio_start;
         uint8_t const * const audio_end;
         std::vector<Cue> cue_starts;
-        MixerControl<GainParams> fader_control;
-        MixerControl<GainParams> gain_control;
+        MixerControl<GainParams, bool> fader_control;
+        MixerControl<GainParams, bool> gain_control;
+        MixerControl<BiquadFilterParams, nMath::TwoPoleFilter> lp_shelf_control;
+        std::array<nMath::TwoPoleFilter, 2> lp_shelf_filters;
         float bpm;
         int selected_marker;
 
@@ -83,7 +97,7 @@ namespace MixScript
         std::atomic_int32_t last_read_pos;
         uint8_t* write_pos;
         float Read();
-        float ReadAndProcess();
+        float ReadAndProcess(const int channel);
         float Read(const uint8_t** read_pos_) const;
         void Write(const float value);
         bool Cue(uint8_t const * const position, uint32_t& cue_id) const;
@@ -94,8 +108,8 @@ namespace MixScript
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
-        const MixerControl<GainParams>& GetControl(const MixScript::SourceAction action) const;
-        MixerControl<GainParams>& GetControl(const MixScript::SourceAction action);
+        const MixerControl<GainParams, bool>& GetControl(const MixScript::SourceAction action) const;
+        MixerControl<GainParams, bool>& GetControl(const MixScript::SourceAction action);
 
         ~WaveAudioSource();
 
@@ -115,6 +129,11 @@ namespace MixScript
     MixScript::Cue* TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
-    void UpdateGainValue(const WaveAudioSource& source, const GainParams& params, MixerControl<GainParams>& control,
-        const float interpolation_percent, const bool update_param_on_selected_marker);
+    template<typename Params, typename State>
+    struct ParamsUpdater {
+        void UpdateMovement(const WaveAudioSource& source, const Params& params, MixerControl<Params, State>& control,
+            const float interpolation_percent, const bool update_param_on_selected_marker);
+    };
+    template struct ParamsUpdater<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
+    template struct ParamsUpdater<BiquadFilterParams, nMath::TwoPoleFilter>;
 }

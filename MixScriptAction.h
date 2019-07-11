@@ -12,6 +12,7 @@ namespace MixScript {
         SA_UPDATE_GAIN,
         SA_MULTIPLY_FADER_GAIN,
         SA_MULTIPLY_TRACK_GAIN,
+        SA_MULTIPLY_LP_SHELF_GAIN,
         SA_BYPASS_GAIN,
         SA_SET_RECORD,
         SA_RESET_AUTOMATION,
