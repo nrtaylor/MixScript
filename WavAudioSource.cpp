@@ -315,9 +315,9 @@ namespace MixScript
         case MFT_SQRT:
             return sqrtf(param * inv_duration);
         case MFT_TRIG:
-            return sinf(param * inv_duration * M_PI_2);
+            return sinf(param * inv_duration * (float)M_PI_2);
         case MFT_EXP:
-            return expf(param * inv_duration)/M_E;
+            return expf(param * inv_duration)/ (float)M_E;
         }
 
         return param;
@@ -342,10 +342,10 @@ namespace MixScript
         });
 
         if (interval == movements.begin()) {
-            return movements.front().params.Apply(sample, state);
+            return movements.front().params.ApplyL(sample, state);
         }
         if (interval == movements.end()) {
-            return movements.back().params.Apply(sample, state);
+            return movements.back().params.ApplyR(sample, state);
         }
 
         const Movement<Params>& start_state = *(interval - 1);
@@ -354,7 +354,7 @@ namespace MixScript
         const int64_t t = (int64_t)(position - start_state.cue_pos);            
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
 
-        const float start_value = start_state.params.Apply(sample, state);
+        const float start_value = start_state.params.ApplyL(sample, state);
         float ratio = (float)t / (float)duration;
         // If transition_samples is zero, assume threshold_percent is being used instead.
         if (end_state.transition_samples != 0) {
@@ -378,7 +378,7 @@ namespace MixScript
             }
         }
 
-        const float end_value = end_state.params.Apply(sample, state);
+        const float end_value = end_state.params.ApplyR(sample, state);
         return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 

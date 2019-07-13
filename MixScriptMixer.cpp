@@ -141,7 +141,7 @@ namespace MixScript
                 nMath::TwoPoleButterworthLowShelfConfig(FrequencyToPercent(target.format, 200.f), db) :
                 nMath::TwoPoleNullConfig();
             BiquadFilterParams params{ filter, DbToGain(db) };
-            ParamsUpdater<BiquadFilterParams, nMath::TwoPoleFilter> updater;
+            ParamsUpdater<BiquadFilterParams, BiquadFilterInterpolatedState> updater;
             updater.UpdateMovement(target, params, target.lp_shelf_control, 1.f, update_param_on_selected_marker);
         }
         break;

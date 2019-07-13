@@ -18,7 +18,12 @@ namespace MixScript
     struct GainParams {        
         float gain;        
 
-        float Apply(const float sample, bool unused) const {
+        float ApplyL(const float sample, bool unused) const {
+            unused;
+            return sample * gain;
+        }
+        float ApplyR(const float sample, bool unused) const {
+            unused;
             return sample * gain;
         }
         float Value() const {
@@ -26,12 +31,19 @@ namespace MixScript
         }
     };
 
+    struct BiquadFilterInterpolatedState {
+        nMath::TwoPoleFilter left; // region
+        nMath::TwoPoleFilter right;
+    };
+
     struct BiquadFilterParams {        
         nMath::TwoPoleFilterParams filter;
         float gain;
-
-        float Apply(const float sample, nMath::TwoPoleFilter& filter_state) const {
-            return filter_state.Apply(filter, sample);
+        float ApplyL(const float sample, BiquadFilterInterpolatedState& filter_state) const {
+            return filter_state.left.Apply(filter, sample);
+        }
+        float ApplyR(const float sample, BiquadFilterInterpolatedState& filter_state) const {
+            return filter_state.right.Apply(filter, sample);
         }
         float Value() const {
             return gain;
@@ -71,7 +83,7 @@ namespace MixScript
     };
 
     template struct MixerControl<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
-    template struct MixerControl<BiquadFilterParams, nMath::TwoPoleFilter>;
+    template struct MixerControl<BiquadFilterParams, BiquadFilterInterpolatedState>;
 
     enum CueType : int {
         CT_DEFAULT,
@@ -93,8 +105,8 @@ namespace MixScript
         std::vector<Cue> cue_starts;
         MixerControl<GainParams, bool> fader_control;
         MixerControl<GainParams, bool> gain_control;
-        MixerControl<BiquadFilterParams, nMath::TwoPoleFilter> lp_shelf_control;
-        std::array<nMath::TwoPoleFilter, 2> lp_shelf_filters;
+        MixerControl<BiquadFilterParams, BiquadFilterInterpolatedState> lp_shelf_control;
+        std::array<BiquadFilterInterpolatedState, 2> lp_shelf_filters;
         float bpm;
         int selected_marker;
 
@@ -141,5 +153,5 @@ namespace MixScript
             const float interpolation_percent, const bool update_param_on_selected_marker);
     };
     template struct ParamsUpdater<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
-    template struct ParamsUpdater<BiquadFilterParams, nMath::TwoPoleFilter>;
+    template struct ParamsUpdater<BiquadFilterParams, BiquadFilterInterpolatedState>;
 }
