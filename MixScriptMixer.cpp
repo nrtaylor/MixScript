@@ -59,8 +59,7 @@ namespace MixScript
         const WaveAudioSource& source = Selected();
         interpolation_percent = 0.0f;
         uint8_t const * const cue_pos = source.SelectedMarkerPos();
-        bool unused = false;
-        const float gain = source.fader_control.Apply(cue_pos, unused, 1.f);
+        const float gain = source.fader_control.ValueAt(cue_pos);
         const auto& movements = source.fader_control.movements;
         auto it = std::find_if(movements.begin(), movements.end(),
             [&](const Movement<GainParams>& a) { return a.cue_pos == cue_pos; });
@@ -106,7 +105,6 @@ namespace MixScript
         WaveAudioSource& target = action_info.explicit_target >= 0 ?
             (action_info.explicit_target ? *incoming.get() : *playing.get()) : Selected();
         auto& control = target.GetControl(selected_action);
-        bool unused = false;
         switch (action_info.action)
         {
         case MixScript::SA_UPDATE_GAIN:
@@ -115,14 +113,14 @@ namespace MixScript
         case MixScript::SA_MULTIPLY_FADER_GAIN:
         {
             const float minimuum_adjustment = DbToGain(0.5f) - 1.f;
-            const float current_gain = target.fader_control.Apply(target.audio_start + target.last_read_pos, unused, 1.f);
+            const float current_gain = target.fader_control.ValueAt(target.audio_start + target.last_read_pos);
             const float next_gain = current_gain + minimuum_adjustment * action_info.r_value;
             UpdateGainValue(target, nMath::Clamp(next_gain, 0.f, 1.f), 1.f);
         }
         break;
         case MixScript::SA_MULTIPLY_TRACK_GAIN:
         {
-            const float current_gain = target.gain_control.Apply(target.audio_start + target.last_read_pos, unused, 1.f);
+            const float current_gain = target.gain_control.ValueAt(target.audio_start + target.last_read_pos);
             float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
             db = nMath::Clamp(db, -96.f, 12.f);
             //char debug_msg[256]; sprintf(&debug_msg[0], "Next db %.3f\n", db);
@@ -134,8 +132,7 @@ namespace MixScript
         break;
         case MixScript::SA_MULTIPLY_LP_SHELF_GAIN:
         {
-            nMath::TwoPoleFilter placeholder; placeholder.Bypass(true);
-            const float current_gain = target.lp_shelf_control.Apply(target.audio_start + target.last_read_pos, placeholder, 1.f);
+            const float current_gain = target.lp_shelf_control.ValueAt(target.audio_start + target.last_read_pos);
             float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
             db = nMath::Clamp(db, -12.f, 3.f);
             //char debug_msg[256]; sprintf(&debug_msg[0], "Next db %.3f\n", db);
@@ -562,9 +559,8 @@ namespace MixScript
         const MixerControl<GainParams, bool>* control = &source.GetControl(selected_action);
         const uint8_t* read_pos = scroll_offset;
         int i = 0;
-        bool unused = false;
         for (float& value : automation.values) {
-            value = control->Apply(read_pos, unused, 1.f);
+            value = control->ValueAt(read_pos);
             // Center around 1.f
             if (selected_action == MixScript::SA_MULTIPLY_TRACK_GAIN) {
                 if (value > 1.f) {

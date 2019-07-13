@@ -14,22 +14,27 @@
 namespace MixScript
 {
     struct WaveAudioBuffer;
-
-    struct GainParams {
+    
+    struct GainParams {        
         float gain;        
 
         float Apply(const float sample, bool unused) const {
             return sample * gain;
         }
+        float Value() const {
+            return gain;
+        }
     };
 
-    struct BiquadFilterParams {
+    struct BiquadFilterParams {        
         nMath::TwoPoleFilterParams filter;
         float gain;
 
         float Apply(const float sample, nMath::TwoPoleFilter& filter_state) const {
-            float processed = filter_state.Apply(filter, sample);
-            return processed * gain;
+            return filter_state.Apply(filter, sample);
+        }
+        float Value() const {
+            return gain;
         }
     };
 
@@ -50,7 +55,7 @@ namespace MixScript
     };
 
     template<typename Params, typename State>
-    struct MixerControl {        
+    struct MixerControl {
         typedef Movement<Params> movement_type;
         std::vector<movement_type> movements;
         bool bypass;
@@ -61,6 +66,7 @@ namespace MixScript
 
         movement_type& Add(const Params& params, uint8_t const * const position);
         float Apply(uint8_t const * const position, State& state, const float sample) const;
+        float ValueAt(uint8_t const * const position) const;
         void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
 

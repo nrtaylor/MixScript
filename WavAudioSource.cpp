@@ -382,13 +382,64 @@ namespace MixScript
         return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 
+    template<typename Params, typename State>
+    float MixerControl<Params, State>::ValueAt(uint8_t const * const position) const {
+        if (movements.empty() || bypass) {
+            return 1.f;
+        }
+
+        const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
+            [](const Movement<Params>& lhs, uint8_t const * const rhs) {
+            return lhs.cue_pos < rhs;
+        });
+
+        if (interval == movements.begin()) {
+            return movements.front().params.Value();
+        }
+        if (interval == movements.end()) {
+            return movements.back().params.Value();
+        }
+
+        const Movement<Params>& start_state = *(interval - 1);
+        const Movement<Params>& end_state = *interval;
+
+        const int64_t t = (int64_t)(position - start_state.cue_pos);
+        const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
+
+        const float start_value = start_state.params.Value();
+        float ratio = (float)t / (float)duration;
+        // If transition_samples is zero, assume threshold_percent is being used instead.
+        if (end_state.transition_samples != 0) {
+            if (t < duration - end_state.transition_samples) {
+                return start_value;
+            }
+            if (duration > end_state.transition_samples) {
+                ratio = 1.f - (duration - t) / (float)end_state.transition_samples;
+            }
+        }
+        else {
+            if (ratio < end_state.threshold_percent) {
+                return start_value;
+            }
+
+            // TODO: Clean up
+            if (end_state.threshold_percent > 0.f) {
+                uint8_t const * const start_pos = start_state.cue_pos +
+                    static_cast<int32_t>((float)duration * end_state.threshold_percent);
+                ratio = (float)(position - start_pos) / (float)(end_state.cue_pos - start_pos);
+            }
+        }
+
+        const float end_value = end_state.params.Value();
+        return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
+    }
+
     float WaveAudioSource::ReadAndProcess(const int channel) {
         uint8_t const * const starting_read_pos = read_pos;
         bool unused = false;
         float sample = gain_control.Apply(starting_read_pos, unused, Read());
         sample = fader_control.Apply(starting_read_pos, unused, sample);
         sample = lp_shelf_control.Apply(starting_read_pos, lp_shelf_filters[channel], sample);        
-        // sample = low_shelf_control.Apply();
         return sample;
     }
     
