@@ -175,7 +175,7 @@ void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
     float interpolation_percent = 0.f;
     const float gain_amount = mixer->FaderGainValue(interpolation_percent);
-    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().fader_control.bypass,
+    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().fader_control2.bypass,
         juce::NotificationType::dontSendNotification);
     SelectedVisuals()->peaks.dirty = true;
 }

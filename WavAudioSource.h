@@ -15,17 +15,8 @@ namespace MixScript
 {
     struct WaveAudioBuffer;
     
-    struct GainParams {        
-        float gain;        
-
-        float ApplyL(const float sample, bool unused) const {
-            unused;
-            return sample * gain;
-        }
-        float ApplyR(const float sample, bool unused) const {
-            unused;
-            return sample * gain;
-        }
+    struct GainControl {
+        float gain;
         float Value() const {
             return gain;
         }
@@ -36,20 +27,6 @@ namespace MixScript
         nMath::TwoPoleFilter right;
     };
 
-    struct BiquadFilterParams {        
-        nMath::TwoPoleFilterParams filter;
-        float gain;
-        float ApplyL(const float sample, BiquadFilterInterpolatedState& filter_state) const {
-            return filter_state.left.Apply(filter, sample);
-        }
-        float ApplyR(const float sample, BiquadFilterInterpolatedState& filter_state) const {
-            return filter_state.right.Apply(filter, sample);
-        }
-        float Value() const {
-            return gain;
-        }
-    };
-
     enum MixFadeType : int32_t {
         MFT_LINEAR = 1,
         MFT_SQRT,
@@ -57,33 +34,43 @@ namespace MixScript
         MFT_EXP,
     };
 
-    template<typename Params>
-    struct Movement {
-        Params params;
+    struct MovementPrecomputeCache {
+        virtual void Remove(const int index) = 0;
+    };
+
+    struct MovementPrecomputCacheTwoPoleFilter : public MovementPrecomputeCache {
+        std::vector<nMath::TwoPoleFilterParams> cache;
+        void Remove(const int index) {
+            cache.erase(cache.begin() + index);
+        }
+    };
+
+    struct Movement2 {
+        GainControl control;
         MixFadeType interpolation_type;
         float threshold_percent;
         int64_t transition_samples;
         const uint8_t* cue_pos;
+        int precompute_index;
     };
-
-    template<typename Params, typename State>
-    struct MixerControl {
-        typedef Movement<Params> movement_type;
+    
+    struct MixerControl2 {
+        typedef Movement2 movement_type;
         std::vector<movement_type> movements;
         bool bypass;
+        
+        MixerControl2() : bypass(false) { movements.reserve(256); }
 
-        WaveAudioFormat format;
-
-        MixerControl() : bypass(false) { movements.reserve(256); }
-
-        movement_type& Add(const Params& params, uint8_t const * const position);
-        float Apply(uint8_t const * const position, State& state, const float sample) const;
+        movement_type& Add(const GainControl& control, uint8_t const * const position);
+        struct MixerInterpolation {
+            const movement_type* start;
+            const movement_type* end;
+            float ratio;
+        };
+        MixerInterpolation GetInterpolation(uint8_t const * const position) const;
         float ValueAt(uint8_t const * const position) const;
         void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
-
-    template struct MixerControl<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
-    template struct MixerControl<BiquadFilterParams, BiquadFilterInterpolatedState>;
 
     enum CueType : int {
         CT_DEFAULT,
@@ -103,9 +90,10 @@ namespace MixScript
         uint8_t const * const audio_start;
         uint8_t const * const audio_end;
         std::vector<Cue> cue_starts;
-        MixerControl<GainParams, bool> fader_control;
-        MixerControl<GainParams, bool> gain_control;
-        MixerControl<BiquadFilterParams, BiquadFilterInterpolatedState> lp_shelf_control;
+        MixerControl2 gain_control2;
+        MixerControl2 fader_control2;
+        MixerControl2 lp_shelf_control2;
+        MovementPrecomputCacheTwoPoleFilter lp_shelf_precomute;
         std::array<BiquadFilterInterpolatedState, 2> lp_shelf_filters;
         float bpm;
         int selected_marker;
@@ -126,8 +114,8 @@ namespace MixScript
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
-        const MixerControl<GainParams, bool>& GetControl(const MixScript::SourceAction action) const;
-        MixerControl<GainParams, bool>& GetControl(const MixScript::SourceAction action);
+        const MixerControl2& GetControl(const MixScript::SourceAction action) const;
+        MixerControl2& GetControl(const MixScript::SourceAction action);
 
         ~WaveAudioSource();
 
@@ -147,11 +135,6 @@ namespace MixScript
     MixScript::Cue* TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
-    template<typename Params, typename State>
-    struct ParamsUpdater {
-        void UpdateMovement(const WaveAudioSource& source, const Params& params, MixerControl<Params, State>& control,
-            const float interpolation_percent, const bool update_param_on_selected_marker);
-    };
-    template struct ParamsUpdater<GainParams, bool>; // TODO: Clean-up explicit definition warnings.
-    template struct ParamsUpdater<BiquadFilterParams, BiquadFilterInterpolatedState>;
+    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl2& mixer_control,
+        const float interpolation_percent, const bool update_param_on_selected_marker, const int precompute_index);
 }

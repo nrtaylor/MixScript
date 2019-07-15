@@ -257,20 +257,17 @@ namespace MixScript
         return cue_starts[selected_marker - 1].start;
     }
 
-    template <typename Params, typename State>
-    void MixerControl<Params, State>::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
+    void MixerControl2::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
         if (!movements.empty()) {
             movements.erase(
-                std::remove_if(movements.begin(), movements.end(), [&](const MixerControl::movement_type& movement) {
+                std::remove_if(movements.begin(), movements.end(), [&](const MixerControl2::movement_type& movement) {
                 return movement.cue_pos > start && movement.cue_pos <= end;
             }), movements.end());
         }
     }
-
-    template <typename Params, typename State>
-    void ParamsUpdater<Params, State>::UpdateMovement(const WaveAudioSource& source,
-        const Params& params, MixerControl<Params, State>& control,
-        const float interpolation_percent, const bool update_param_on_selected_marker) {
+    
+    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl2& mixer_control,
+        const float interpolation_percent, const bool update_param_on_selected_marker, int precompute_index) {
         const int cue_id = source.selected_marker;
         if (!update_param_on_selected_marker || cue_id > 0) {
             uint8_t const * const marker_pos = update_param_on_selected_marker ? source.cue_starts[cue_id - 1].start :
@@ -278,13 +275,14 @@ namespace MixScript
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
-            for (Movement<Params>& movement : control.movements) {
+            for (Movement2& movement : mixer_control.movements) {
                 // TODO: Decide if it is easier to separate automation points from cues, or if
                 // automation and cues should stay in sync.
                 if (movement.cue_pos == marker_pos) {
-                    movement.params = params;
+                    movement.control = control;
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
+                    movement.precompute_index = precompute_index;
                     found = true;
                     break;
                 }
@@ -294,14 +292,15 @@ namespace MixScript
                 ++gain_cue_id;
             }
             if (!found) {
-                if (gain_cue_id >= control.movements.size()) {
-                    Movement<Params>& movement = control.Add(params, marker_pos);
+                if (gain_cue_id >= mixer_control.movements.size()) {
+                    Movement2& movement = mixer_control.Add(control, marker_pos);
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
+                    movement.precompute_index = precompute_index;
                 }
                 else {
-                    control.movements.insert(control.movements.begin() + gain_cue_id,
-                        Movement<Params>{ params, MFT_LINEAR, interpolation_percent,
+                    mixer_control.movements.insert(mixer_control.movements.begin() + gain_cue_id,
+                        Movement2{ control, MFT_LINEAR, interpolation_percent,
                         (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos });
                 }
             }
@@ -323,53 +322,49 @@ namespace MixScript
         return param;
     }
 
-    template<typename Params, typename State>
-    Movement<Params>& MixerControl<Params, State>::Add(const Params& params, uint8_t const * const position) {
-        movements.emplace_back(Movement<Params>{ params, MFT_LINEAR, 0.f, 0, position });
+    Movement2& MixerControl2::Add(const GainControl& control, uint8_t const * const position) {
+        movements.emplace_back(Movement2{ control, MFT_LINEAR, 0.f, 0, position, -1 });
         return movements.back();
     }
 
-    template<typename Params, typename State>
-    float MixerControl<Params, State>::Apply(uint8_t const * const position, State& state, const float sample) const {
-        if (movements.empty() ||
-            bypass) {
-            return sample;
+    MixerControl2::MixerInterpolation MixerControl2::GetInterpolation(uint8_t const * const position) const {
+        if (movements.empty() || bypass) {
+            return MixerInterpolation{ nullptr, nullptr, 0.f };
         }
 
         const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
-            [](const Movement<Params>& lhs, uint8_t const * const rhs) { 
-                return lhs.cue_pos < rhs; 
+            [](const Movement2& lhs, uint8_t const * const rhs) {
+            return lhs.cue_pos < rhs;
         });
 
         if (interval == movements.begin()) {
-            return movements.front().params.ApplyL(sample, state);
+            return MixerInterpolation{ &movements.front(), nullptr, 0.f };
         }
         if (interval == movements.end()) {
-            return movements.back().params.ApplyR(sample, state);
+            return MixerInterpolation{ &movements.back(), nullptr, 0.f };
         }
 
-        const Movement<Params>& start_state = *(interval - 1);
-        const Movement<Params>& end_state = *interval;        
+        const Movement2& start_state = *(interval - 1);
+        const Movement2& end_state = *interval;
 
-        const int64_t t = (int64_t)(position - start_state.cue_pos);            
+        const int64_t t = (int64_t)(position - start_state.cue_pos);
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
 
-        const float start_value = start_state.params.ApplyL(sample, state);
         float ratio = (float)t / (float)duration;
         // If transition_samples is zero, assume threshold_percent is being used instead.
         if (end_state.transition_samples != 0) {
             if (t < duration - end_state.transition_samples) {
-                return start_value;
+                return MixerInterpolation{ &start_state, nullptr, 0.f };
             }
             if (duration > end_state.transition_samples) {
                 ratio = 1.f - (duration - t) / (float)end_state.transition_samples;
             }
         }
-        else {                
+        else {
             if (ratio < end_state.threshold_percent) {
-                return start_value;
+                return MixerInterpolation{ &start_state, nullptr, 0.f };
             }
-                
+
             // TODO: Clean up
             if (end_state.threshold_percent > 0.f) {
                 uint8_t const * const start_pos = start_state.cue_pos +
@@ -378,35 +373,33 @@ namespace MixScript
             }
         }
 
-        const float end_value = end_state.params.ApplyR(sample, state);
-        return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
+        return MixerInterpolation{ &start_state, &end_state, ratio };
     }
-
-    template<typename Params, typename State>
-    float MixerControl<Params, State>::ValueAt(uint8_t const * const position) const {
+    
+    float MixerControl2::ValueAt(uint8_t const * const position) const {
         if (movements.empty() || bypass) {
             return 1.f;
         }
 
         const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
-            [](const Movement<Params>& lhs, uint8_t const * const rhs) {
+            [](const Movement2& lhs, uint8_t const * const rhs) {
             return lhs.cue_pos < rhs;
         });
 
         if (interval == movements.begin()) {
-            return movements.front().params.Value();
+            return movements.front().control.Value();
         }
         if (interval == movements.end()) {
-            return movements.back().params.Value();
+            return movements.back().control.Value();
         }
 
-        const Movement<Params>& start_state = *(interval - 1);
-        const Movement<Params>& end_state = *interval;
+        const Movement2& start_state = *(interval - 1);
+        const Movement2& end_state = *interval;
 
         const int64_t t = (int64_t)(position - start_state.cue_pos);
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
 
-        const float start_value = start_state.params.Value();
+        const float start_value = start_state.control.Value();
         float ratio = (float)t / (float)duration;
         // If transition_samples is zero, assume threshold_percent is being used instead.
         if (end_state.transition_samples != 0) {
@@ -430,16 +423,54 @@ namespace MixScript
             }
         }
 
-        const float end_value = end_state.params.Value();
+        const float end_value = end_state.control.Value();
         return InterpolateMix(end_value - start_value, ratio, end_state.interpolation_type) + start_value;
     }
 
     float WaveAudioSource::ReadAndProcess(const int channel) {
         uint8_t const * const starting_read_pos = read_pos;
         bool unused = false;
-        float sample = gain_control.Apply(starting_read_pos, unused, Read());
-        sample = fader_control.Apply(starting_read_pos, unused, sample);
-        sample = lp_shelf_control.Apply(starting_read_pos, lp_shelf_filters[channel], sample);        
+        float sample = Read();
+        MixerControl2::MixerInterpolation interpolation = gain_control2.GetInterpolation(starting_read_pos);
+        if (interpolation.start) {
+            float start_value = interpolation.start->control.Value();
+            if (interpolation.end) {
+            float end_value = interpolation.end->control.Value();
+            sample *= InterpolateMix(end_value - start_value, interpolation.ratio,
+                    interpolation.end->interpolation_type) + start_value;
+            }
+            else {
+                sample = sample * start_value;
+            }
+        }
+
+        interpolation = fader_control2.GetInterpolation(starting_read_pos);
+        if (interpolation.start) {
+            float start_value = interpolation.start->control.Value();
+            if (interpolation.end) {
+                float end_value = interpolation.end->control.Value();
+                sample *= InterpolateMix(end_value - start_value, interpolation.ratio,
+                    interpolation.end->interpolation_type) + start_value;
+            }
+            else {
+                sample = sample * start_value;
+            }
+        }
+
+        interpolation = lp_shelf_control2.GetInterpolation(starting_read_pos);
+        if (interpolation.start) {
+            float start_value = lp_shelf_filters[channel].left.Apply(
+                lp_shelf_precomute.cache[interpolation.start->precompute_index], sample);
+            if (interpolation.end) {
+                float end_value = lp_shelf_filters[channel].right.Apply(
+                    lp_shelf_precomute.cache[interpolation.end->precompute_index], sample);
+                sample = InterpolateMix(end_value - start_value, interpolation.ratio,
+                    interpolation.end->interpolation_type) + start_value;
+            }
+            else {
+                sample = start_value;
+            }
+        }
         return sample;
     }
     
@@ -483,17 +514,17 @@ namespace MixScript
         return false;
     }
     
-    MixerControl<GainParams, bool>& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
+    MixerControl2& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
         if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
-            return fader_control;
+            return fader_control2;
         }
-        return gain_control;
+        return gain_control2;
     }
 
-    const MixerControl<GainParams, bool>& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
+    const MixerControl2& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
         if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
-            return fader_control;
+            return fader_control2;
         }
-        return gain_control;
+        return gain_control2;
     }
 }
