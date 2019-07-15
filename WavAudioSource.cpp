@@ -257,16 +257,18 @@ namespace MixScript
         return cue_starts[selected_marker - 1].start;
     }
 
-    void MixerControl2::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
+    void MixerControl::ClearMovements(uint8_t const * const start, uint8_t const * const end) {
         if (!movements.empty()) {
             movements.erase(
-                std::remove_if(movements.begin(), movements.end(), [&](const MixerControl2::movement_type& movement) {
-                return movement.cue_pos > start && movement.cue_pos <= end;
+                std::remove_if(movements.begin(), movements.end(), [&](const MixerControl::movement_type& movement) {
+                if (movement.cue_pos > start && movement.cue_pos <= end) {
+                    return true;
+                }
             }), movements.end());
         }
     }
     
-    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl2& mixer_control,
+    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl& mixer_control,
         const float interpolation_percent, const bool update_param_on_selected_marker, int precompute_index) {
         const int cue_id = source.selected_marker;
         if (!update_param_on_selected_marker || cue_id > 0) {
@@ -275,7 +277,7 @@ namespace MixScript
             int gain_cue_id = 0;
             bool found = false;
             // TODO: Binary Search
-            for (Movement2& movement : mixer_control.movements) {
+            for (Movement& movement : mixer_control.movements) {
                 // TODO: Decide if it is easier to separate automation points from cues, or if
                 // automation and cues should stay in sync.
                 if (movement.cue_pos == marker_pos) {
@@ -293,14 +295,14 @@ namespace MixScript
             }
             if (!found) {
                 if (gain_cue_id >= mixer_control.movements.size()) {
-                    Movement2& movement = mixer_control.Add(control, marker_pos);
+                    Movement& movement = mixer_control.Add(control, marker_pos);
                     movement.threshold_percent = interpolation_percent;
                     movement.transition_samples = (int64_t)TimeMsToBytes(source.format, 5.f);
                     movement.precompute_index = precompute_index;
                 }
                 else {
                     mixer_control.movements.insert(mixer_control.movements.begin() + gain_cue_id,
-                        Movement2{ control, MFT_LINEAR, interpolation_percent,
+                        Movement{ control, MFT_LINEAR, interpolation_percent,
                         (int64_t)TimeMsToBytes(source.format, 5.f), marker_pos });
                 }
             }
@@ -322,18 +324,18 @@ namespace MixScript
         return param;
     }
 
-    Movement2& MixerControl2::Add(const GainControl& control, uint8_t const * const position) {
-        movements.emplace_back(Movement2{ control, MFT_LINEAR, 0.f, 0, position, -1 });
+    Movement& MixerControl::Add(const GainControl& control, uint8_t const * const position) {
+        movements.emplace_back(Movement{ control, MFT_LINEAR, 0.f, 0, position, -1 });
         return movements.back();
     }
 
-    MixerControl2::MixerInterpolation MixerControl2::GetInterpolation(uint8_t const * const position) const {
+    MixerControl::MixerInterpolation MixerControl::GetInterpolation(uint8_t const * const position) const {
         if (movements.empty() || bypass) {
             return MixerInterpolation{ nullptr, nullptr, 0.f };
         }
 
         const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
-            [](const Movement2& lhs, uint8_t const * const rhs) {
+            [](const Movement& lhs, uint8_t const * const rhs) {
             return lhs.cue_pos < rhs;
         });
 
@@ -344,8 +346,8 @@ namespace MixScript
             return MixerInterpolation{ &movements.back(), nullptr, 0.f };
         }
 
-        const Movement2& start_state = *(interval - 1);
-        const Movement2& end_state = *interval;
+        const Movement& start_state = *(interval - 1);
+        const Movement& end_state = *interval;
 
         const int64_t t = (int64_t)(position - start_state.cue_pos);
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
@@ -376,13 +378,13 @@ namespace MixScript
         return MixerInterpolation{ &start_state, &end_state, ratio };
     }
     
-    float MixerControl2::ValueAt(uint8_t const * const position) const {
+    float MixerControl::ValueAt(uint8_t const * const position) const {
         if (movements.empty() || bypass) {
             return 1.f;
         }
 
         const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
-            [](const Movement2& lhs, uint8_t const * const rhs) {
+            [](const Movement& lhs, uint8_t const * const rhs) {
             return lhs.cue_pos < rhs;
         });
 
@@ -393,8 +395,8 @@ namespace MixScript
             return movements.back().control.Value();
         }
 
-        const Movement2& start_state = *(interval - 1);
-        const Movement2& end_state = *interval;
+        const Movement& start_state = *(interval - 1);
+        const Movement& end_state = *interval;
 
         const int64_t t = (int64_t)(position - start_state.cue_pos);
         const int64_t duration = (int64_t)(end_state.cue_pos - start_state.cue_pos);
@@ -431,7 +433,7 @@ namespace MixScript
         uint8_t const * const starting_read_pos = read_pos;
         bool unused = false;
         float sample = Read();
-        MixerControl2::MixerInterpolation interpolation = gain_control2.GetInterpolation(starting_read_pos);
+        MixerControl::MixerInterpolation interpolation = gain_control.GetInterpolation(starting_read_pos);
         if (interpolation.start) {
             float start_value = interpolation.start->control.Value();
             if (interpolation.end) {
@@ -444,7 +446,7 @@ namespace MixScript
             }
         }
 
-        interpolation = fader_control2.GetInterpolation(starting_read_pos);
+        interpolation = fader_control.GetInterpolation(starting_read_pos);
         if (interpolation.start) {
             float start_value = interpolation.start->control.Value();
             if (interpolation.end) {
@@ -457,7 +459,7 @@ namespace MixScript
             }
         }
 
-        interpolation = lp_shelf_control2.GetInterpolation(starting_read_pos);
+        interpolation = lp_shelf_control.GetInterpolation(starting_read_pos);
         if (interpolation.start) {
             float start_value = lp_shelf_filters[channel].left.Apply(
                 lp_shelf_precomute.cache[interpolation.start->precompute_index], sample);
@@ -514,17 +516,29 @@ namespace MixScript
         return false;
     }
     
-    MixerControl2& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
-        if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
-            return fader_control2;
+    MixerControl& WaveAudioSource::GetControl(const MixScript::SourceAction action) {
+        switch (action) {
+        case MixScript::SA_MULTIPLY_FADER_GAIN:
+            return fader_control;
+            break;
+        case  MixScript::SA_MULTIPLY_LP_SHELF_GAIN:
+            return lp_shelf_control;
+            break;
+        default:
+            return gain_control;
         }
-        return gain_control2;
     }
 
-    const MixerControl2& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
-        if (action == MixScript::SA_MULTIPLY_FADER_GAIN) {
-            return fader_control2;
+    const MixerControl& WaveAudioSource::GetControl(const MixScript::SourceAction action) const {
+        switch (action) {
+        case MixScript::SA_MULTIPLY_FADER_GAIN:
+            return fader_control;
+            break;
+        case  MixScript::SA_MULTIPLY_LP_SHELF_GAIN:
+            return lp_shelf_control;
+            break;
+        default:
+            return gain_control;
         }
-        return gain_control2;
     }
 }

@@ -45,7 +45,7 @@ namespace MixScript
         }
     };
 
-    struct Movement2 {
+    struct Movement {
         GainControl control;
         MixFadeType interpolation_type;
         float threshold_percent;
@@ -54,12 +54,13 @@ namespace MixScript
         int precompute_index;
     };
     
-    struct MixerControl2 {
-        typedef Movement2 movement_type;
+    struct MixerControl {
+        typedef Movement movement_type;
         std::vector<movement_type> movements;
+        MovementPrecomputeCache* cache;
         bool bypass;
         
-        MixerControl2() : bypass(false) { movements.reserve(256); }
+        MixerControl() : bypass(false), cache(nullptr) { movements.reserve(256); }
 
         movement_type& Add(const GainControl& control, uint8_t const * const position);
         struct MixerInterpolation {
@@ -90,9 +91,9 @@ namespace MixScript
         uint8_t const * const audio_start;
         uint8_t const * const audio_end;
         std::vector<Cue> cue_starts;
-        MixerControl2 gain_control2;
-        MixerControl2 fader_control2;
-        MixerControl2 lp_shelf_control2;
+        MixerControl gain_control;
+        MixerControl fader_control;
+        MixerControl lp_shelf_control;
         MovementPrecomputCacheTwoPoleFilter lp_shelf_precomute;
         std::array<BiquadFilterInterpolatedState, 2> lp_shelf_filters;
         float bpm;
@@ -114,8 +115,8 @@ namespace MixScript
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
 
-        const MixerControl2& GetControl(const MixScript::SourceAction action) const;
-        MixerControl2& GetControl(const MixScript::SourceAction action);
+        const MixerControl& GetControl(const MixScript::SourceAction action) const;
+        MixerControl& GetControl(const MixScript::SourceAction action);
 
         ~WaveAudioSource();
 
@@ -135,6 +136,6 @@ namespace MixScript
     MixScript::Cue* TrySelectMarker(WaveAudioSource& source, uint8_t const * const position, const int tolerance);
     void ReadSamples(std::unique_ptr<WaveAudioSource>& source, float* left, float* right, int samples_to_read);
 
-    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl2& mixer_control,
+    void UpdateMovement(const WaveAudioSource& source, const GainControl& control, MixerControl& mixer_control,
         const float interpolation_percent, const bool update_param_on_selected_marker, const int precompute_index);
 }

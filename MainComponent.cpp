@@ -175,7 +175,7 @@ void MainComponent::LoadControls() {
     // TOOD: Get Controls from Mixer
     float interpolation_percent = 0.f;
     const float gain_amount = mixer->FaderGainValue(interpolation_percent);
-    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().fader_control2.bypass,
+    playing_controls.LoadControls(gain_amount, interpolation_percent, mixer->Selected().fader_control.bypass,
         juce::NotificationType::dontSendNotification);
     SelectedVisuals()->peaks.dirty = true;
 }
@@ -201,6 +201,9 @@ bool MainComponent::keyPressed(const KeyPress &key)
                     break;
                 case '2':
                     next_action = MixScript::SA_MULTIPLY_TRACK_GAIN;
+                    break;
+                case '3':
+                    next_action = MixScript::SA_MULTIPLY_LP_SHELF_GAIN;
                     break;
                 }
                 if (next_action != mixer->SelectedAction()) {
@@ -496,7 +499,8 @@ enum MenuActions : int {
     MS_Seek_Sync,
     MS_Gen_Implied_Markers,
     MS_Control_Fader,
-    MS_Control_Gain
+    MS_Control_Gain,
+    MS_Control_Lp_Shelf_Gain
 };
 
 PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& menuName)
@@ -519,6 +523,7 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& me
     else if (menuName == "Controls") {
         menu.addItem(MS_Control_Gain, "Track Gain");
         menu.addItem(MS_Control_Fader, "Fader");
+        menu.addItem(MS_Control_Lp_Shelf_Gain, "LP Shelf");
     }
 
     return menu;
@@ -558,6 +563,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         break;
     case MS_Control_Gain:
         mixer->SetSelectedAction(MixScript::SA_MULTIPLY_TRACK_GAIN);
+        break;
+    case MS_Control_Lp_Shelf_Gain:
+        mixer->SetSelectedAction(MixScript::SA_MULTIPLY_LP_SHELF_GAIN);
         break;
     default:
         break;
