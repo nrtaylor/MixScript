@@ -96,6 +96,9 @@ namespace MixScript
         MixerControl lp_shelf_control;
         MovementPrecomputCacheTwoPoleFilter lp_shelf_precomute;
         std::array<BiquadFilterInterpolatedState, 2> lp_shelf_filters;
+        MixerControl hp_shelf_control;
+        MovementPrecomputCacheTwoPoleFilter hp_shelf_precomute;
+        std::array<BiquadFilterInterpolatedState, 2> hp_shelf_filters;
         float bpm;
         int selected_marker;
 

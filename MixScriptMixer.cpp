@@ -133,13 +133,26 @@ namespace MixScript
         {
             const float current_gain = target.lp_shelf_control.ValueAt(target.audio_start + target.last_read_pos);
             float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
-            db = nMath::Clamp(db, -18.f, 6.f);
+            db = nMath::Clamp(db, -24.f, 6.f);
             // TODO: Replace index with uid
             target.lp_shelf_precomute.cache.emplace_back(fabsf(db) > 0.01 ?
                 nMath::TwoPoleButterworthLowShelfConfig(FrequencyToPercent(target.format, 200.f), db) :
                 nMath::TwoPoleNullConfig());            
             UpdateMovement(target, GainControl{ DbToGain(db) }, target.lp_shelf_control, 1.f,
                 update_param_on_selected_marker, target.lp_shelf_precomute.cache.size() - 1);
+        }
+        break;
+        case MixScript::SA_MULTIPLY_HP_SHELF_GAIN:
+        {
+            const float current_gain = target.hp_shelf_control.ValueAt(target.audio_start + target.last_read_pos);
+            float db = (current_gain > 0.f ? GainToDb(current_gain) : -96.f) + action_info.r_value;
+            db = nMath::Clamp(db, -24.f, 6.f);
+            // TODO: Replace index with uid
+            target.hp_shelf_precomute.cache.emplace_back(fabsf(db) > 0.01 ?
+                nMath::TwoPoleButterworthHighShelfConfig(FrequencyToPercent(target.format, 3000.f), db) :
+                nMath::TwoPoleNullConfig());
+            UpdateMovement(target, GainControl{ DbToGain(db) }, target.hp_shelf_control, 1.f,
+                update_param_on_selected_marker, target.hp_shelf_precomute.cache.size() - 1);
         }
         break;
         case MixScript::SA_BYPASS_GAIN:
@@ -566,7 +579,8 @@ namespace MixScript
                 }
                 value *= 0.5f;
             }
-            else if (selected_action == MixScript::SA_MULTIPLY_LP_SHELF_GAIN) {                
+            else if (selected_action == MixScript::SA_MULTIPLY_LP_SHELF_GAIN ||
+                selected_action == MixScript::SA_MULTIPLY_HP_SHELF_GAIN) {
                 value *= 0.5f;
             }
             ++i;

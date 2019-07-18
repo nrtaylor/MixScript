@@ -473,6 +473,21 @@ namespace MixScript
                 sample = start_value;
             }
         }
+
+        interpolation = hp_shelf_control.GetInterpolation(starting_read_pos);
+        if (interpolation.start) {
+            float start_value = hp_shelf_filters[channel].left.Apply(
+                hp_shelf_precomute.cache[interpolation.start->precompute_index], sample);
+            if (interpolation.end) {
+                float end_value = hp_shelf_filters[channel].right.Apply(
+                    hp_shelf_precomute.cache[interpolation.end->precompute_index], sample);
+                sample = InterpolateMix(end_value - start_value, interpolation.ratio,
+                    interpolation.end->interpolation_type) + start_value;
+            }
+            else {
+                sample = start_value;
+            }
+        }
         return sample;
     }
     
@@ -524,6 +539,9 @@ namespace MixScript
         case  MixScript::SA_MULTIPLY_LP_SHELF_GAIN:
             return lp_shelf_control;
             break;
+        case  MixScript::SA_MULTIPLY_HP_SHELF_GAIN:
+            return hp_shelf_control;
+            break;
         default:
             return gain_control;
         }
@@ -536,6 +554,9 @@ namespace MixScript
             break;
         case  MixScript::SA_MULTIPLY_LP_SHELF_GAIN:
             return lp_shelf_control;
+            break;
+        case  MixScript::SA_MULTIPLY_HP_SHELF_GAIN:
+            return hp_shelf_control;
             break;
         default:
             return gain_control;

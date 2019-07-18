@@ -205,6 +205,9 @@ bool MainComponent::keyPressed(const KeyPress &key)
                 case '3':
                     next_action = MixScript::SA_MULTIPLY_LP_SHELF_GAIN;
                     break;
+                case '4':
+                    next_action = MixScript::SA_MULTIPLY_HP_SHELF_GAIN;
+                    break;
                 }
                 if (next_action != mixer->SelectedAction()) {
                     mixer->SetSelectedAction(next_action);
@@ -500,7 +503,8 @@ enum MenuActions : int {
     MS_Gen_Implied_Markers,
     MS_Control_Fader,
     MS_Control_Gain,
-    MS_Control_Lp_Shelf_Gain
+    MS_Control_Lp_Shelf_Gain,
+    MS_Control_Hp_Shelf_Gain
 };
 
 PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& menuName)
@@ -566,6 +570,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         break;
     case MS_Control_Lp_Shelf_Gain:
         mixer->SetSelectedAction(MixScript::SA_MULTIPLY_LP_SHELF_GAIN);
+        break;
+    case MS_Control_Hp_Shelf_Gain:
+        mixer->SetSelectedAction(MixScript::SA_MULTIPLY_HP_SHELF_GAIN);
         break;
     default:
         break;
