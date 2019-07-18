@@ -334,18 +334,21 @@ namespace MixScript
             return MixerInterpolation{ nullptr, nullptr, 0.f };
         }
 
+        // Typical case for live or control with only default value.
+        if (position >= movements.back().cue_pos) {
+            return MixerInterpolation{ &movements.back(), nullptr, 0.f };
+        }
+
         const auto interval = std::lower_bound(movements.begin(), movements.end(), position,
             [](const Movement& lhs, uint8_t const * const rhs) {
             return lhs.cue_pos < rhs;
         });
+        assert(interval != movements.end());
 
         if (interval == movements.begin()) {
             return MixerInterpolation{ &movements.front(), nullptr, 0.f };
         }
-        if (interval == movements.end()) {
-            return MixerInterpolation{ &movements.back(), nullptr, 0.f };
-        }
-
+        
         const Movement& start_state = *(interval - 1);
         const Movement& end_state = *interval;
 
