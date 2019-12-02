@@ -261,9 +261,7 @@ namespace MixScript
         if (!movements.empty()) {
             movements.erase(
                 std::remove_if(movements.begin(), movements.end(), [&](const MixerControl::movement_type& movement) {
-                if (movement.cue_pos > start && movement.cue_pos <= end) {
-                    return true;
-                }
+                return movement.cue_pos > start && movement.cue_pos <= end;
             }), movements.end());
         }
     }
