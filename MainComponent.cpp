@@ -112,6 +112,8 @@ MainComponent::MainComponent() :
     //addKeyListener(this);
     setWantsKeyboardFocus(true);
     startTimerHz(60);
+
+    SetUpKeyBindings();
 }
 
 MainComponent::~MainComponent()
@@ -180,9 +182,242 @@ void MainComponent::LoadControls() {
     SelectedVisuals()->peaks.dirty = true;
 }
 
+void MainComponent::SetUpKeyBindings() {
+    key_bindings.clear();
+    // Movement Modifiers
+    // Incoming
+    key_bindings.emplace_back(LightKeyBinding{ (int)'P', juce::String("Incoming +1"), false, false, false,
+    [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 1.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    }});
+    key_bindings.emplace_back(LightKeyBinding{ (int)'[', juce::String("Incoming +3"), false, false, false,
+    [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 3.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    }});
+    key_bindings.emplace_back(LightKeyBinding{ (int)'L', juce::String("Incoming -1"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -1.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    }});
+    key_bindings.emplace_back(LightKeyBinding{ (int)']', juce::String("Incoming Max"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'\\', juce::String("Incoming Min"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    // Playing
+    key_bindings.emplace_back(LightKeyBinding{ (int)'W', juce::String("Playing +1"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 1.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'E', juce::String("Playing +3"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 3.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'A', juce::String("Playing -1"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -1.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'F', juce::String("Playing Max"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'G', juce::String("Playing Min"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'S', juce::String("Playing Only"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 0 });
+        track_playing_visuals->gain_automation.dirty = true;
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'K', juce::String("Incoming Only"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -100.f, 0 });
+        track_playing_visuals->gain_automation.dirty = true;
+        mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 1 });
+        track_incoming_visuals->gain_automation.dirty = true;
+    } });
+    // Automation
+    key_bindings.emplace_back(LightKeyBinding{ (int)'R', juce::String("Reset Mvmnt in Region"), false, false, false,
+        [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_RESET_AUTOMATION_IN_REGION });
+        SelectedVisuals()->gain_automation.dirty = true;
+    } });
+    // Navigation
+    key_bindings.emplace_back(LightKeyBinding{ (int)'F', juce::String("Open Menu"), true, false, false,
+        [this]() { menuBar.showMenu(0); } });
+    // Tracks
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::downKey, juce::String("Zoom Out"), false, true, false,
+        [this]() { SelectedVisuals()->ChangeZoom(-1); } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::upKey, juce::String("Zoom In"), false, true, false,
+        [this]() { SelectedVisuals()->ChangeZoom(1); } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::downKey, juce::String("Select Track Next"), false, false, false,
+        [this]() {
+        mixer->selected_track = ++mixer->selected_track % 2;
+        LoadControls();
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::upKey, juce::String("Select Track Prev"), false, false, false,
+        [this]() { 
+        mixer->selected_track = ++mixer->selected_track % 2;
+        LoadControls();
+    } });
+    // Markers
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::leftKey, juce::String("Select Marker Left"), false, true, false,
+        [this]() {
+        if (playback_paused) {
+            mixer->SetSelectedMarker(mixer->MarkerLeft());
+            LoadControls();
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::rightKey, juce::String("Select Marker Right"), false, true, false,
+        [this]() {
+        if (playback_paused) {
+            mixer->SetSelectedMarker(mixer->MarkerRight());
+            LoadControls();
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::leftKey, juce::String("Move Marker Left"), false, false, false,
+        [this]() {
+        if (playback_paused) {
+            const int32 samples_per_pixel = static_cast<int32>(
+                SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
+            mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? -samples_per_pixel : -1);
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::rightKey, juce::String("Move Marker Right"), false, false, false,
+        [this]() {
+        if (playback_paused) {
+            const int32 samples_per_pixel = static_cast<int32>(
+                SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
+            mixer->Selected().MoveSelectedMarker(samples_per_pixel > 0 ? samples_per_pixel : 1);
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'S', juce::String("Set Mix Sync"), false, false, true,
+        [this]() { 
+        if (playback_paused) {
+            mixer->SetMixSync();
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::homeKey, juce::String("Beginning"), false, true, false,
+        [this]() {
+        queued_cue = -1;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'=', juce::String("Add Marker"), false, false, true,
+        [this]() {
+        if (playback_paused) {
+            mixer->Selected().AddMarker();
+            //if (key.isKeyCurrentlyDown('A')) {
+            //    mixer->AddMarker();
+            //}
+            //else {
+            //    mixer->Selected().AddMarker();
+            //}
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::deleteKey, juce::String("Delete Marker"), false, false, false,
+        [this]() {
+        if (playback_paused) {
+            mixer->Selected().DeleteMarker();
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::returnKey, juce::String("Delete Marker"), false, false, false,
+        [this]() {
+        if (playback_paused) {
+            mixer->ResetToCue(mixer->Playing()->selected_marker);
+        }
+    } });
+    // Playing
+    key_bindings.emplace_back(LightKeyBinding{ (int)' ', juce::String("Pause / Unpause"), false, true, false,
+        [this]() { 
+            const bool set_playback_paused = !playback_paused.load();
+            playback_paused = set_playback_paused;
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'M', juce::String("Mono Playback"), false, false, true,
+        [this]() { modifier_mono = true; } });
+    // Controls
+    key_bindings.emplace_back(LightKeyBinding{ (int)'G', juce::String("Focus Gain Control"), true, false, false,
+        [this]() { playing_controls.Focus(); } });
+    // Movement
+    key_bindings.emplace_back(LightKeyBinding{ (int)'1', juce::String("Fader Gain"), false, false, true,
+        [this]() {
+        const MixScript::SourceAction selected_action = mixer->SelectedAction();
+        const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_FADER_GAIN;
+        if (next_action != mixer->SelectedAction()) {
+            mixer->SetSelectedAction(next_action);
+            track_playing_visuals->gain_automation.dirty = true;
+            track_incoming_visuals->gain_automation.dirty = true;
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'2', juce::String("Track Gain"), false, false, true,
+        [this]() {
+        const MixScript::SourceAction selected_action = mixer->SelectedAction();
+        const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_TRACK_GAIN;
+        if (next_action != mixer->SelectedAction()) {
+            mixer->SetSelectedAction(next_action);
+            track_playing_visuals->gain_automation.dirty = true;
+            track_incoming_visuals->gain_automation.dirty = true;
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'3', juce::String("LP Shelf Gain"), false, false, true,
+        [this]() {
+        const MixScript::SourceAction selected_action = mixer->SelectedAction();
+        const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_LP_SHELF_GAIN;
+        if (next_action != mixer->SelectedAction()) {
+            mixer->SetSelectedAction(next_action);
+            track_playing_visuals->gain_automation.dirty = true;
+            track_incoming_visuals->gain_automation.dirty = true;
+        }
+    } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'4', juce::String("HP Shelf Gain"), false, false, true,
+        [this]() {
+        const MixScript::SourceAction selected_action = mixer->SelectedAction();
+        const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_HP_SHELF_GAIN;
+        if (next_action != mixer->SelectedAction()) {
+            mixer->SetSelectedAction(next_action);
+            track_playing_visuals->gain_automation.dirty = true;
+            track_incoming_visuals->gain_automation.dirty = true;
+        }
+    } });
+}
+
+void MainComponent::ShowKeyBindings() {
+    menuKeyBindings.clear();
+    int i = 1;
+    for (const LightKeyBinding& key : key_bindings) {
+        menuKeyBindings.addItem(i++, key.action_name + " " + (char)key.key_code);
+    }
+    menuKeyBindings.showAt(juce::Rectangle<int>(this->getScreenX() + 10, this->getScreenY() + 10, 0, 0),
+        0, 0, 0, 0, nullptr);
+}
+
 bool MainComponent::keyPressed(const KeyPress &key)
 {
     const int key_code = key.getKeyCode();
+
+    for (const auto& key_binding : key_bindings) {
+        if (key_code == key_binding.key_code &&
+            key.getModifiers().isAltDown() == key_binding.modifier_alt &&
+            key.getModifiers().isCtrlDown() == key_binding.modifier_ctrl &&
+            key.getModifiers().isShiftDown() == key_binding.modifier_shift) {
+            key_binding.binding();
+            return true;
+        }
+    }
+
     bool refresh_controls = false;
     const MixScript::SourceAction selected_action = mixer->SelectedAction();
     if (key_code >= (int)'0' && key_code <= (int)'9') {
@@ -192,171 +427,10 @@ bool MainComponent::keyPressed(const KeyPress &key)
             mixer->SetSelectedMarker(cue_id);
             refresh_controls = true;
         }
-        else {
-            if (key.getModifiers().isShiftDown()) {
-                MixScript::SourceAction next_action = selected_action;
-                switch (key_code) {
-                case '1':
-                    next_action = MixScript::SA_MULTIPLY_FADER_GAIN;
-                    break;
-                case '2':
-                    next_action = MixScript::SA_MULTIPLY_TRACK_GAIN;
-                    break;
-                case '3':
-                    next_action = MixScript::SA_MULTIPLY_LP_SHELF_GAIN;
-                    break;
-                case '4':
-                    next_action = MixScript::SA_MULTIPLY_HP_SHELF_GAIN;
-                    break;
-                }
-                if (next_action != mixer->SelectedAction()) {
-                    mixer->SetSelectedAction(next_action);
-                    track_playing_visuals->gain_automation.dirty = true;
-                    track_incoming_visuals->gain_automation.dirty = true;
-                }
-            }
-            else {
-                queued_cue = cue_id;
-            }
+        else if (!key.getModifiers().isShiftDown()) {
+            queued_cue = cue_id;
+            return true;
         }
-        //return true; // TODO: Handle/not handled
-    }
-    // Begin Mix Controls
-    else if (key_code == 'P') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 1.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == '[') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 3.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'L') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -1.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == ']') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == '\\') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'W') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 1.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'A') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -1.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'E') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 3.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'F') {
-        if (key.getModifiers().isAltDown()) {
-            menuBar.showMenu(0);
-        }
-        else {
-            mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 0 });
-            track_playing_visuals->gain_automation.dirty = true;
-        }
-    }
-    else if (key_code == 'G') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'S') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == 'K') {
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, -100.f, 0 });
-        track_playing_visuals->gain_automation.dirty = true;
-        mixer->HandleAction(MixScript::SourceActionInfo{ selected_action, 100.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
-    }
-    else if (key_code == KeyPress::downKey) {
-        if (key.getModifiers().isCtrlDown()) {
-            SelectedVisuals()->ChangeZoom(-1);
-        } else {
-            mixer->selected_track = ++mixer->selected_track % 2;
-            refresh_controls = true;
-        }
-    }
-    else if (key_code == KeyPress::upKey) {
-        if (key.getModifiers().isCtrlDown()) {
-            SelectedVisuals()->ChangeZoom(1);
-        }
-        else {
-            mixer->selected_track = ++mixer->selected_track % 2;
-            refresh_controls = true;
-        }
-    }
-    else if (key_code == KeyPress::leftKey) {
-        if (playback_paused) {
-            if (key.getModifiers().isCtrlDown()) {
-                mixer->SetSelectedMarker(mixer->MarkerLeft());
-                refresh_controls = true;
-            }
-            else {
-                const int32 samples_per_pixel = static_cast<int32>(
-                    SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
-                mixer->Selected().MoveSelectedMarker(samples_per_pixel> 0 ? -samples_per_pixel : -1);
-            }
-        }
-    }
-    else if (key_code == KeyPress::rightKey) {
-        if (playback_paused) {
-            if (key.getModifiers().isCtrlDown()) {
-                mixer->SetSelectedMarker(mixer->MarkerRight());
-                refresh_controls = true;
-            }
-            else {
-                const uint32 samples_per_pixel = static_cast<uint32>(
-                    SelectedVisuals()->SamplesPerPixel(mixer->Selected()));
-                mixer->Selected().MoveSelectedMarker(samples_per_pixel > 0 ? samples_per_pixel : 1);
-            }
-        }
-    }
-    else if (key_code == (int)'S') {
-        if (playback_paused && key.getModifiers().isShiftDown()) {
-            mixer->SetMixSync();
-        }
-    }
-    else if (key_code == (int)' ') {
-        const bool set_playback_paused = !playback_paused.load();
-        playback_paused = set_playback_paused;
-    }
-    else if (key_code == KeyPress::homeKey) {
-        queued_cue = -1;
-    }
-    else if (key_code == '=' && key.getModifiers().isShiftDown()) {
-        if (playback_paused) {
-            if (key.isKeyCurrentlyDown('A')) {
-                mixer->AddMarker();
-            }
-            else {
-                mixer->Selected().AddMarker();
-            }
-        }
-    }
-    else if (key_code == KeyPress::deleteKey) {
-        if (playback_paused) {
-            mixer->Selected().DeleteMarker();
-        }
-    }
-    else if (key_code == KeyPress::returnKey && playback_paused) {
-        mixer->ResetToCue(mixer->Playing()->selected_marker);
-    }
-    else if (key_code == 'M' && key.getModifiers().isShiftDown()) {
-        modifier_mono = true;
-    }
-    else if (key_code == (int)'G' && key.getModifiers().isAltDown()) {
-        playing_controls.Focus();
     }
     if (refresh_controls) {
         LoadControls();
@@ -504,7 +578,8 @@ enum MenuActions : int {
     MS_Control_Fader,
     MS_Control_Gain,
     MS_Control_Lp_Shelf_Gain,
-    MS_Control_Hp_Shelf_Gain
+    MS_Control_Hp_Shelf_Gain,
+    MS_Show_Key_Bindings,
 };
 
 PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& menuName)
@@ -516,6 +591,7 @@ PopupMenu MainComponent::getMenuForIndex(int topLevelMenuIndex, const String& me
         menu.addItem(MS_Save, "Save");
         menu.addItem(MS_Load, "Load");
         menu.addItem(MS_Export, "Export");
+        menu.addItem(MS_Show_Key_Bindings, "Key Bindings");
     }
     else if (menuName == "Markers") {
         menu.addItem(MS_Gen_Implied_Markers, "Generate Implied Markers");
@@ -544,6 +620,9 @@ void MainComponent::menuItemSelected(int menuItemID, int /*topLevelMenuIndex*/) 
         break;
     case MS_Export:
         ExportRender();
+        break;
+    case MS_Show_Key_Bindings:
+        ShowKeyBindings();
         break;
     case MS_Set_Sync:
         mixer->SetMixSync();
@@ -674,8 +753,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                         track_visuals->zoom_factor > 1.f) {
                         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%|i" : "%i", cue_id);
                         const int label_width = cue_id > 99 ? 8 : 6;
-                        const juce::Rectangle<float> label_rect(pixel_pos - label_width, markers.getPosition().y + 2,
-                            label_width * 2, 10);
+                        const juce::Rectangle<float> label_rect((float)(pixel_pos - label_width), markers.getPosition().y + 2.f,
+                            label_width * 2.f, 10.f);
                         g.drawText(cue_label, label_rect, juce::Justification::centred);
                         if (source->selected_marker == cue_id) {
                             g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
@@ -709,7 +788,7 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
         for (const float value : automation.values) {
             const int offset_y = (int)((1.f - value) * wave_height) + 1;
             if (previous_y > 0 && (offset_y ^ previous_y) > 1) {
-                g.drawLine(x - 1, y + previous_y, x, y + offset_y);
+                g.drawLine((float)(x - 1), (float)(y + previous_y), (float)x, (float)(y + offset_y));
             }
             g.fillRect(x++, y + offset_y, 1, 1);
             previous_y = offset_y;

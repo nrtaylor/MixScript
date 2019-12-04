@@ -74,10 +74,23 @@ private:
 
     MenuBarComponent menuBar;
     PopupMenu menuMarkerType;
+    PopupMenu menuKeyBindings;
 
     void ExportRender();
     void SaveProject();
     void LoadProject();
+
+    void SetUpKeyBindings();
+    void ShowKeyBindings();
+    struct LightKeyBinding {
+        int key_code;
+        juce::String action_name;        
+        bool modifier_alt;
+        bool modifier_ctrl;
+        bool modifier_shift;
+        std::function<void()> binding;
+    };
+    std::vector<LightKeyBinding> key_bindings;
     
     void timerCallback() override;
 
