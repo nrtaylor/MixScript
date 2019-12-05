@@ -394,12 +394,53 @@ void MainComponent::SetUpKeyBindings() {
     } });
 }
 
+juce::String KeyCodeToString(int key_code) {
+    if (key_code == ' ') {
+        return "Space";
+    }
+    else if (key_code == KeyPress::returnKey) {
+        return "Enter";
+    }
+    else if (key_code == KeyPress::homeKey) {
+        return "Home";
+    }
+    else if (key_code == KeyPress::deleteKey) {
+        return "Delete";
+    }
+    else if (key_code == KeyPress::downKey ) {
+        return "Down";
+    }
+    else if (key_code == KeyPress::upKey) {
+        return "Up";
+    }
+    else if (key_code == KeyPress::rightKey) {
+        return "Right";
+    }
+    else if (key_code == KeyPress::leftKey) {
+        return "Left";
+    }
+    return juce::String() + (char)key_code;
+}
+
 void MainComponent::ShowKeyBindings() {
     menuKeyBindings.clear();
     int i = 1;
+    menuKeyBindings.addSectionHeader("Key Bindings");
     for (const LightKeyBinding& key : key_bindings) {
-        menuKeyBindings.addItem(i++, key.action_name + " " + (char)key.key_code);
+        juce::String modifiers;
+        if (key.modifier_alt) {
+            modifiers += "Alt + ";
+        }
+        if (key.modifier_ctrl) {
+            modifiers += "Ctrl + ";
+        }
+        if (key.modifier_shift) {
+            modifiers += "Shift + ";
+        }
+        menuKeyBindings.addItem(i++, key.action_name + ": " + modifiers + KeyCodeToString(key.key_code));
     }
+    menuKeyBindings.addSectionHeader("0 .. 9: Playback at Marker");
+    menuKeyBindings.addSectionHeader("Shift + 0 .. 9: Select Marker");
     menuKeyBindings.showAt(juce::Rectangle<int>(this->getScreenX() + 10, this->getScreenY() + 10, 0, 0),
         0, 0, 0, 0, nullptr);
 }
