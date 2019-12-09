@@ -134,7 +134,7 @@ void MainComponent::SetUpKeyBindings() {
             mixer->SetMixSync();
         }
     } });
-    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::homeKey, juce::String("Beginning"), false, true, false,
+    key_bindings.emplace_back(LightKeyBinding{ (int)KeyPress::homeKey, juce::String("Beginning"), false, false, false,
         [this]() {
         queued_cue = -1;
     } });
@@ -163,7 +163,7 @@ void MainComponent::SetUpKeyBindings() {
         }
     } });
     // Playing
-    key_bindings.emplace_back(LightKeyBinding{ (int)' ', juce::String("Pause / Unpause"), false, true, false,
+    key_bindings.emplace_back(LightKeyBinding{ (int)' ', juce::String("Pause / Unpause"), false, false, false,
         [this]() {
         const bool set_playback_paused = !playback_paused.load();
         playback_paused = set_playback_paused;
@@ -174,7 +174,7 @@ void MainComponent::SetUpKeyBindings() {
     key_bindings.emplace_back(LightKeyBinding{ (int)'G', juce::String("Focus Gain Control"), true, false, false,
         [this]() { playing_controls.Focus(); } });
     // Movement
-    key_bindings.emplace_back(LightKeyBinding{ (int)'1', juce::String("Fader Gain"), false, false, true,
+    key_bindings.emplace_back(LightKeyBinding{ (int)'1', juce::String("Fader Gain"), true, false, false,
         [this]() {
         const MixScript::SourceAction selected_action = mixer->SelectedAction();
         const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_FADER_GAIN;
@@ -184,7 +184,7 @@ void MainComponent::SetUpKeyBindings() {
             track_incoming_visuals->gain_automation.dirty = true;
         }
     } });
-    key_bindings.emplace_back(LightKeyBinding{ (int)'2', juce::String("Track Gain"), false, false, true,
+    key_bindings.emplace_back(LightKeyBinding{ (int)'2', juce::String("Track Gain"), true, false, false,
         [this]() {
         const MixScript::SourceAction selected_action = mixer->SelectedAction();
         const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_TRACK_GAIN;
@@ -194,7 +194,7 @@ void MainComponent::SetUpKeyBindings() {
             track_incoming_visuals->gain_automation.dirty = true;
         }
     } });
-    key_bindings.emplace_back(LightKeyBinding{ (int)'3', juce::String("LP Shelf Gain"), false, false, true,
+    key_bindings.emplace_back(LightKeyBinding{ (int)'3', juce::String("LP Shelf Gain"), true, false, false,
         [this]() {
         const MixScript::SourceAction selected_action = mixer->SelectedAction();
         const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_LP_SHELF_GAIN;
@@ -204,7 +204,7 @@ void MainComponent::SetUpKeyBindings() {
             track_incoming_visuals->gain_automation.dirty = true;
         }
     } });
-    key_bindings.emplace_back(LightKeyBinding{ (int)'4', juce::String("HP Shelf Gain"), false, false, true,
+    key_bindings.emplace_back(LightKeyBinding{ (int)'4', juce::String("HP Shelf Gain"), true, false, false,
         [this]() {
         const MixScript::SourceAction selected_action = mixer->SelectedAction();
         const MixScript::SourceAction next_action = MixScript::SA_MULTIPLY_HP_SHELF_GAIN;
@@ -248,6 +248,7 @@ void MainComponent::ShowKeyBindings() {
     menuKeyBindings.clear();
     int i = 1;
     menuKeyBindings.addSectionHeader("Key Bindings");
+    // TODO: Add categories
     for (const LightKeyBinding& key : key_bindings) {
         juce::String modifiers;
         if (key.modifier_alt) {
