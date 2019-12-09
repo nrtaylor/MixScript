@@ -248,13 +248,16 @@ namespace MixScript
     void Mixer::GenerateImpliedMarkers() {
         ClearImpliedMarkers();
         WaveAudioSource& source = Selected();
-        const int cue_start = source.selected_marker;
+        int cue_start = source.selected_marker;
         if (cue_start <= 0) {
             return;
         }
-        const int cue_end = MarkerRight();
-        if (cue_end <= cue_start) {
+        int cue_end = MarkerRight();
+        if (cue_end == cue_start) {
             return;
+        }
+        if (cue_end < cue_start) {
+            std::swap(cue_end, cue_start);
         }
         auto& cues = source.cue_starts;
         uint8_t const * const original_pos = source.read_pos;
