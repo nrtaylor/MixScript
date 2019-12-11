@@ -337,43 +337,77 @@ namespace MixScript
         }
         ResetToCue(0);
     }
-
+    
     template<class T>
     void Mixer::Mix(T& output_writer, int samples_to_read) {
 
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
-        const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start :
-            playing_.audio_start;
         float left = 0;
         float right = 0;
         const bool make_mono = modifier_mono;
-        for (int32_t i = 0; i < samples_to_read; ++i) {
-            uint32_t cue_id = 0;
-            bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
-            left = playing_.ReadAndProcess(0);
-            // Second read should use first read pos for automation calculation
-            right = playing_.ReadAndProcess(1);
-            if (playing_.read_pos >= front) {
-                left += incoming_.ReadAndProcess(0);
-                right += incoming_.ReadAndProcess(1);
+
+        // TODO: Figure out template unresolved external bug preventing refactor.
+        if (incoming_.playback_solo && !playing_.playback_solo) {
+            for (int32_t i = 0; i < samples_to_read; ++i) {
+                left = incoming_.ReadAndProcess(0);
+                // Second read should use first read pos for automation calculation
+                right = incoming_.ReadAndProcess(1);
+                if (make_mono) {
+                    left = 0.707f * (left + right);
+                    right = left;
+                }
+                output_writer.WriteLeft(left);
+                output_writer.WriteRight(right);
             }
-            if (on_cue) {
-                MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));
-            }
-            else if (incoming_.Cue(incoming_.read_pos, cue_id)) {
-                MixScript::ResetToCue(playing, (uint32_t)((int32_t)cue_id + mix_sync.Reverse()));
-            }
-            if (make_mono) {
-                left = 0.707f * (left + right);
-                right = left;
-            }
-            output_writer.WriteLeft(left);
-            output_writer.WriteRight(right);
+            incoming_.last_read_pos = static_cast<int32_t>(incoming_.read_pos - incoming_.audio_start);
+            return;
         }
-        playing_.last_read_pos = static_cast<int32_t>(playing_.read_pos - playing_.audio_start);
-        incoming_.last_read_pos = static_cast<int32_t>(incoming_.read_pos - incoming_.audio_start);
+        else if (!incoming_.playback_solo && playing_.playback_solo) {
+            for (int32_t i = 0; i < samples_to_read; ++i) {
+                left = playing_.ReadAndProcess(0);
+                // Second read should use first read pos for automation calculation
+                right = playing_.ReadAndProcess(1);
+                if (make_mono) {
+                    left = 0.707f * (left + right);
+                    right = left;
+                }
+                output_writer.WriteLeft(left);
+                output_writer.WriteRight(right);
+            }
+            playing_.last_read_pos = static_cast<int32_t>(playing_.read_pos - playing_.audio_start);
+            return;
+        }
+        else {
+            const uint8_t* front = playing_.cue_starts.size() ? playing_.cue_starts[mix_sync.playing_cue_id - 1].start :
+                playing_.audio_start;
+            for (int32_t i = 0; i < samples_to_read; ++i) {
+                uint32_t cue_id = 0;
+                bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
+                left = playing_.ReadAndProcess(0);
+                // Second read should use first read pos for automation calculation
+                right = playing_.ReadAndProcess(1);
+                if (playing_.read_pos >= front) {
+                    left += incoming_.ReadAndProcess(0);
+                    right += incoming_.ReadAndProcess(1);
+                }
+                if (on_cue) {
+                    MixScript::ResetToCue(incoming, (uint32_t)((int32_t)cue_id + mix_sync.Delta()));
+                }
+                else if (incoming_.Cue(incoming_.read_pos, cue_id)) {
+                    MixScript::ResetToCue(playing, (uint32_t)((int32_t)cue_id + mix_sync.Reverse()));
+                }
+                if (make_mono) {
+                    left = 0.707f * (left + right);
+                    right = left;
+                }
+                output_writer.WriteLeft(left);
+                output_writer.WriteRight(right);
+            }
+            playing_.last_read_pos = static_cast<int32_t>(playing_.read_pos - playing_.audio_start);
+            incoming_.last_read_pos = static_cast<int32_t>(incoming_.read_pos - incoming_.audio_start);
+        }
     }
 
     void Mixer::ResetToCue(const uint32_t cue_id) {

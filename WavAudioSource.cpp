@@ -178,7 +178,9 @@ namespace MixScript
         audio_start(region_.start),
         audio_end(region_.end),
         selected_marker(-1),
-        bpm(-1.f) {
+        bpm(-1.f),
+        playback_solo(false),
+        playback_bypass_all(false) {
         read_pos = region_.start;
         last_read_pos = 0;
         write_pos = region_.start;
@@ -434,6 +436,9 @@ namespace MixScript
         uint8_t const * const starting_read_pos = read_pos;
         bool unused = false;
         float sample = Read();
+        if (playback_bypass_all) {
+            return sample;
+        }
         MixerControl::MixerInterpolation interpolation = gain_control.GetInterpolation(starting_read_pos);
         if (interpolation.start) {
             float start_value = interpolation.start->control.Value();

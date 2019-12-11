@@ -280,6 +280,25 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
                     }));
                 }
             }
+            else if (right_click) {
+                menuMarkerType.clear();
+                MixScript::WaveAudioSource& source = mixer.Selected();
+                menuMarkerType.addItem(1, "Solo Track", true, source.playback_solo);
+                menuMarkerType.addItem(2, "Bypass Effects", true, source.playback_bypass_all);
+                menuMarkerType.showAt(juce::Rectangle<int>(mouse_x, mouse_y, 10, 22), 0, 0, 0, 0,
+                    ModalCallbackFunction::create([&](const int ret_value) {
+                    switch (ret_value) {
+                        // TODO: Make Thread safe.
+                    case 1:
+                        source.playback_solo = !source.playback_solo;
+                        break;
+                    case 2:
+                        source.playback_bypass_all = !source.playback_bypass_all;
+                        break;
+                }
+                }));
+
+            }
         }
         return true;
     }

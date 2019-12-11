@@ -72,7 +72,7 @@ namespace MixScript
         float ValueAt(uint8_t const * const position) const;
         void ClearMovements(uint8_t const * const start, uint8_t const * const end);
     };
-
+    
     enum CueType : int {
         CT_DEFAULT,
         CT_LEFT_RIGHT,
@@ -101,6 +101,9 @@ namespace MixScript
         std::array<BiquadFilterInterpolatedState, 2> hp_shelf_filters;
         float bpm;
         int selected_marker;
+
+        bool playback_solo; // solo without sync
+        bool playback_bypass_all;
 
         const float kSampleRatio = 1.f / (float)((uint32_t)1 << (uint32_t)31);
         const uint8_t* read_pos;
