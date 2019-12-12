@@ -73,6 +73,11 @@ void MainComponent::SetUpKeyBindings() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 1 });
         track_incoming_visuals->gain_automation.dirty = true;
     } });
+    key_bindings.emplace_back(LightKeyBinding{ (int)'B', juce::String("Bypass and Solo"), false, false, true,
+    [this]() {
+        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_BYPASS });
+        mixer->HandleAction(MixScript::SourceActionInfo{ MixScript::SA_SOLO });
+    } });
     // Automation
     key_bindings.emplace_back(LightKeyBinding{ (int)'R', juce::String("Reset Mvmnt in Region"), false, false, false,
         [this]() {

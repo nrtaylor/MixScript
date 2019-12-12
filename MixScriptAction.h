@@ -18,6 +18,8 @@ namespace MixScript {
         SA_SET_RECORD,
         SA_RESET_AUTOMATION,
         SA_RESET_AUTOMATION_IN_REGION,
+        SA_BYPASS,
+        SA_SOLO,
         SA_CUE_POSITION
     };
 

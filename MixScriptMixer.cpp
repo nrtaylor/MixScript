@@ -179,6 +179,12 @@ namespace MixScript
         case MixScript::SA_CUE_POSITION:
             MixScript::ResetToPos(target, action_info.position);
             break;
+        case MixScript::SA_BYPASS:
+            target.playback_bypass_all = !target.playback_bypass_all;
+            break;
+        case MixScript::SA_SOLO:
+            target.playback_solo = !target.playback_solo;
+            break;
         default:
             break;
         }

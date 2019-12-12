@@ -288,12 +288,11 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
                 menuMarkerType.showAt(juce::Rectangle<int>(mouse_x, mouse_y, 10, 22), 0, 0, 0, 0,
                     ModalCallbackFunction::create([&](const int ret_value) {
                     switch (ret_value) {
-                        // TODO: Make Thread safe.
                     case 1:
-                        source.playback_solo = !source.playback_solo;
+                        mixer.HandleAction(MixScript::SourceActionInfo{ MixScript::SA_SOLO });
                         break;
                     case 2:
-                        source.playback_bypass_all = !source.playback_bypass_all;
+                        mixer.HandleAction(MixScript::SourceActionInfo{ MixScript::SA_BYPASS });
                         break;
                 }
                 }));
@@ -494,10 +493,14 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     }
     
     g.setFont(10);
-    if (source->bpm > 0.f) {
-        juce::Rectangle<int> bpm_rect = info_bar.removeFromRight(80);
-        const juce::String bpm_label = juce::String::formatted("bpm: %.4f", source->bpm);        
-        g.drawText(bpm_label, bpm_rect, juce::Justification::centred);
+    juce::String track_label;
+    if (source->bpm > 0.f) {        
+        const juce::String bpm_label = juce::String::formatted("bpm: %.4f", source->bpm);
+        track_label += bpm_label;
+    }
+    if (track_label.isNotEmpty()) {
+        const juce::Rectangle<int> label_rect = info_bar.removeFromRight(80);
+        g.drawText(track_label, label_rect, juce::Justification::centred);
     }
 
     g.setColour(background_color);
