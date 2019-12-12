@@ -245,15 +245,28 @@ namespace MixScript
 
     void Mixer::ClearImpliedMarkers() {
         WaveAudioSource& source = Selected();
+        const int selected_marker = source.selected_marker;
+        uint8_t const * const selected_marker_start = selected_marker > 0 ? source.cue_starts[source.selected_marker - 1].start : nullptr;
+        int selected_marker_offset = 0;
         auto& cues = source.cue_starts;
-        cues.erase(std::remove_if(cues.begin(), cues.end(), [](const MixScript::Cue& cue) {
+        cues.erase(std::remove_if(cues.begin(), cues.end(), [selected_marker_start, &selected_marker_offset](const MixScript::Cue& cue) {
+            if (cue.start < selected_marker_start && cue.type == CT_IMPLIED) {
+                ++selected_marker_offset;
+            }
             return cue.type == CT_IMPLIED;
         }), cues.end());
+        if (selected_marker_offset > 0) {
+            source.selected_marker -= selected_marker_offset;
+            assert(source.selected_marker > 0);
+        }
     }
 
-    void Mixer::GenerateImpliedMarkers() {
-        ClearImpliedMarkers();
+    void Mixer::GenerateImpliedMarkers() {        
         WaveAudioSource& source = Selected();
+        if (source.selected_marker <= 0) {
+            return;
+        }
+        ClearImpliedMarkers();
         int cue_start = source.selected_marker;
         if (cue_start <= 0) {
             return;
