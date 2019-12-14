@@ -192,21 +192,20 @@ namespace MixScript
         }
     }
 
-    // Returns true if on the cue
+    // Returns true if on the cue, otherwise the cue_id to the left.
     bool WaveAudioSource::Cue(uint8_t const * const position, uint32_t& cue_id) const {
-        cue_id = 0;
-        for (const MixScript::Cue& cue : cue_starts) {
-            uint8_t const * const cue_pos = cue.start;
-            ++cue_id;
-            if (cue_pos == position) {
-                return true;
-            }
-            else if (cue_pos > position) {
-                --cue_id;
-                break;
-            }
+        const auto next_cue = std::lower_bound(cue_starts.begin(), cue_starts.end(), position,
+            [](const MixScript::Cue& lhs, uint8_t const * const rhs) {
+            return lhs.start < rhs;
+        });
+        cue_id = next_cue - cue_starts.begin();
+        if (next_cue != cue_starts.end() && next_cue->start == position) {
+            ++cue_id; // 1 based
+            return true;            
         }
-        return false;
+        else {
+            return false;
+        }
     }
 
     void ResetToCue(std::unique_ptr<WaveAudioSource>& source_, const uint32_t cue_id) {

@@ -403,6 +403,7 @@ namespace MixScript
                 playing_.audio_start;
             for (int32_t i = 0; i < samples_to_read; ++i) {
                 uint32_t cue_id = 0;
+                // TODO: look up next cue instead of per sample.
                 bool on_cue = playing_.Cue(playing_.read_pos, cue_id) && (int)cue_id >= mix_sync.playing_cue_id;
                 left = playing_.ReadAndProcess(0);
                 // Second read should use first read pos for automation calculation

@@ -508,9 +508,11 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
     {
         int x = audio_file_form.getPosition().x;
         int y = audio_file_form.getPosition().y;
-        g.fillRect(x, y + wave_height / 2, wave_width, 1);
+        const int half_wave_height = (int)wave_height / 2;
+        g.fillRect(x, y + half_wave_height, wave_width, 1);
         int cue_index = 0;
         uint8_t const * const cursor_offset = source->audio_start + source->last_read_pos;
+        const int num_cues = (int)source->cue_starts.size();
         for (const MixScript::WavePeaks::WavePeak& peak : peaks.peaks) {
             if (peak.max < peak.min) {
                 // TODO: What causes this?
@@ -518,9 +520,12 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                 continue;
             }
             const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
-            g.fillRect(x++, y + wave_height / 2 - int(wave_height * peak.max / 2.f), 1, line_height);
-            while (cue_index < source->cue_starts.size() && source->cue_starts[cue_index].start < peak.end) {                
+            g.fillRect(x++, y + half_wave_height - int(wave_height * peak.max / 2.f), 1, line_height);
+            while (cue_index < num_cues) {
                 const MixScript::Cue &cue = source->cue_starts[cue_index];
+                if (cue.start >= peak.end) { // passed the end of the visuals
+                    break;
+                }
                 if (cue.start >= peak.start) {
                     // Select Cue Color
                     const Colour* marker_color = &colour;
@@ -549,8 +554,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                         g.fillRect(pixel_pos, audio_file_form.getBottom() + 1, 9, 1);
                         break;
                     }
-                    if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id || cue_id == sync_cue_id ||
-                        track_visuals->zoom_factor > 1.f) {
+                    if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id ||
+                        cue_id == sync_cue_id || track_visuals->zoom_factor > 1.f) {
                         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%|i" : "%i", cue_id);
                         const int label_width = cue_id > 99 ? 8 : 6;
                         const juce::Rectangle<float> label_rect((float)(pixel_pos - label_width), markers.getPosition().y + 2.f,
