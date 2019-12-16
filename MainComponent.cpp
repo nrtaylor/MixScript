@@ -104,7 +104,7 @@ MainComponent::MainComponent() :
     // Make sure you set the size of the component after
     // you add any child components.
     getLookAndFeel().setColour(ResizableWindow::backgroundColourId, Colour(0xAF, 0xAF, 0xAF));
-    setSize(1024, 600);
+    setSize(1024, 560);
 
     // specify the number of input and output channels that we want to open
     setAudioChannels (0, 2);
@@ -519,8 +519,8 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                 ++x;
                 continue;
             }
-            const int line_height = jmax(1 , (int)(wave_height * (peak.max - peak.min) / 2.f));
-            g.fillRect(x++, y + half_wave_height - int(wave_height * peak.max / 2.f), 1, line_height);
+            bool drew_cue = false;
+            // TODO: Refactor out
             while (cue_index < num_cues) {
                 const MixScript::Cue &cue = source->cue_starts[cue_index];
                 if (cue.start >= peak.end) { // passed the end of the visuals
@@ -535,46 +535,51 @@ void PaintAudioSource(Graphics& g, const juce::Rectangle<int>& rect, const MixSc
                     else if (cue_index % 16 != 0) {
                         marker_color = &midground_colour;
                     }
-                    g.setColour(*marker_color);
-                    const int pixel_pos = x - 1;
+                    g.setColour(*marker_color);                    
                     const int cue_id = cue_index + 1;
-                    g.fillRect(pixel_pos, audio_file_form.getTopLeft().y, 1,
+                    g.fillRect(x, audio_file_form.getTopLeft().y, 1,
                         audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
                     switch (cue.type) {
                     case MixScript::CT_LEFT_RIGHT:
-                        g.fillRect(pixel_pos - 8, audio_file_form.getTopLeft().y - 2, 16, 1);
-                        g.fillRect(pixel_pos - 8, audio_file_form.getBottom() + 1, 16, 1);
+                        g.fillRect(x - 8, audio_file_form.getTopLeft().y - 2, 16, 1);
+                        g.fillRect(x - 8, audio_file_form.getBottom() + 1, 16, 1);
                         break;
                     case MixScript::CT_LEFT:
-                        g.fillRect(pixel_pos - 8, audio_file_form.getTopLeft().y - 2, 9, 1);
-                        g.fillRect(pixel_pos - 8, audio_file_form.getBottom() + 1, 9, 1);
+                        g.fillRect(x - 8, audio_file_form.getTopLeft().y - 2, 9, 1);
+                        g.fillRect(x - 8, audio_file_form.getBottom() + 1, 9, 1);
                         break;
                     case MixScript::CT_RIGHT:
-                        g.fillRect(pixel_pos, audio_file_form.getTopLeft().y - 2, 9, 1);
-                        g.fillRect(pixel_pos, audio_file_form.getBottom() + 1, 9, 1);
+                        g.fillRect(x, audio_file_form.getTopLeft().y - 2, 9, 1);
+                        g.fillRect(x, audio_file_form.getBottom() + 1, 9, 1);
                         break;
                     }
                     if (cue.type != MixScript::CT_IMPLIED || source->selected_marker == cue_id ||
                         cue_id == sync_cue_id || track_visuals->zoom_factor > 1.f) {
                         const juce::String cue_label = juce::String::formatted(cue_id == sync_cue_id ? "%|i" : "%i", cue_id);
                         const int label_width = cue_id > 99 ? 8 : 6;
-                        const juce::Rectangle<float> label_rect((float)(pixel_pos - label_width), markers.getPosition().y + 2.f,
+                        const juce::Rectangle<float> label_rect((float)(x - label_width), markers.getPosition().y + 2.f,
                             label_width * 2.f, 10.f);
                         g.drawText(cue_label, label_rect, juce::Justification::centred);
                         if (source->selected_marker == cue_id) {
                             g.drawRoundedRectangle(label_rect.expanded(2), 2.f, 1.f);
                         }
                     }
+                    drew_cue = true;
                     g.setColour(background_color);
                 }
                 ++cue_index;
             }
+            if (!drew_cue) {
+                const int line_height = jmax(1, (int)(wave_height * (peak.max - peak.min) / 2.f));
+                g.fillRect(x, y + half_wave_height - int(wave_height * peak.max / 2.f), 1, line_height);
+            }
             if (cursor_offset >= peak.start && cursor_offset < peak.end) {
-                g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));                
-                g.fillRect(x - 1, audio_file_form.getTopLeft().y, 1,
+                g.setColour(Colour::fromRGB(0xFF, 0xFF, 0xFF));
+                g.fillRect(x, audio_file_form.getTopLeft().y, 1,
                     audio_file_form.getBottom() - audio_file_form.getTopLeft().y);
                 g.setColour(background_color);
             }
+            ++x;
         }
     }
 
