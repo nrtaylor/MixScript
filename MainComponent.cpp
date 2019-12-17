@@ -17,7 +17,8 @@ MainComponent::MainComponent() :
     mixer(nullptr),
     track_playing_visuals(nullptr),
     track_incoming_visuals(nullptr),    
-    queued_cue(0)
+    queued_cue(0),
+    playback_paused(true)
 {
     addAndMakeVisible(menuBar);
     
