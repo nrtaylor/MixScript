@@ -588,6 +588,9 @@ namespace MixScript
     }
 
     float TrackVisualCache::SamplesPerPixel(const WaveAudioSource& source) const {
+        if (source.Empty()) {
+            return 0.f;
+        }
         const int32_t pixel_width = static_cast<int32_t>(peaks.peaks.size());
         const float zoom_amount = zoom_factor > 0 ? powf(2, -zoom_factor) : 1.f;
         const uint32_t delta = (source.audio_end - source.audio_start) / (ByteRate(source.format) * source.format.channels);

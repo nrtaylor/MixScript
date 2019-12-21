@@ -261,7 +261,7 @@ bool HandleMouseDown(MainComponent* mc, const int mouse_x, const int mouse_y, Mi
             mixer.selected_track = visuals_index;
             mc->LoadControls();
         }
-        else if (!visuals.peaks.dirty) {
+        else if (!visuals.peaks.dirty && !mixer.Selected().Empty()) {
             const int offset = mouse_x - visuals.draw_region.x;
             const float samples_per_pixel = visuals.SamplesPerPixel(mixer.Selected());
             const auto& format = mixer.Selected().format;
