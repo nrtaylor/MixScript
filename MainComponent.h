@@ -59,7 +59,6 @@ private:
 
     std::atomic_int32_t queued_cue;
     std::atomic_bool playback_paused;
-    std::atomic_bool modifier_mono;
 
     // UI
     TextButton button_loadfile;

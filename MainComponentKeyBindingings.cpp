@@ -174,7 +174,7 @@ void MainComponent::SetUpKeyBindings() {
         playback_paused = set_playback_paused;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'M', juce::String("Mono Playback"), false, false, true,
-        [this]() { modifier_mono = true; } });
+        [this]() { mixer->modifier_mono = true; } });
     // Controls
     key_bindings.emplace_back(LightKeyBinding{ (int)'G', juce::String("Focus Gain Control"), true, false, false,
         [this]() { playing_controls.Focus(); } });

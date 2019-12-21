@@ -169,7 +169,6 @@ void MainComponent::getNextAudioBlock (const AudioSourceChannelInfo& bufferToFil
     MixScript::FloatOutputWriter output_writer = { bufferToFill.buffer->getWritePointer(0),
         bufferToFill.buffer->getWritePointer(1) };
     
-    mixer->modifier_mono = modifier_mono.load(); // TODO: make mixer member
     mixer->Mix(output_writer, bufferToFill.numSamples);
 }
 
@@ -227,8 +226,8 @@ bool MainComponent::keyPressed(const KeyPress &key)
 
 bool MainComponent::keyStateChanged(bool isKeyDown) {
     if (!isKeyDown) {
-        if (modifier_mono) {
-            modifier_mono = KeyPress::isKeyCurrentlyDown('M');
+        if (mixer->modifier_mono) {
+            mixer->modifier_mono = KeyPress::isKeyCurrentlyDown('M');
             return true;
         }
     }
