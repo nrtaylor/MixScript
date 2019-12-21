@@ -57,6 +57,7 @@ namespace MixScript
         WaveAudioSource* Render();
         void Save(const char* file_path);
         void Load(const char* file_path);
+        void LoadPlaceholders();
         void LoadPlayingFromFile(const char* file_path);
         void LoadIncomingFromFile(const char* file_path);
         std::atomic_bool modifier_mono;

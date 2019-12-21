@@ -170,6 +170,21 @@ namespace MixScript
         OutputDebugString("Destroying Source");
     }
 
+    WaveAudioSource::WaveAudioSource():
+        file_name(""),
+        format(),
+        buffer(nullptr),
+        audio_start(nullptr),
+        audio_end(nullptr),
+        selected_marker(-1),
+        read_pos(nullptr),
+        last_read_pos(0),
+        write_pos(0),
+        bpm(-1.f),
+        playback_solo(false),
+        playback_bypass_all(false)
+    {}
+
     WaveAudioSource::WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
         const AudioRegion& region_, const std::vector<uint32_t>& cue_offsets):
         file_name(file_path),

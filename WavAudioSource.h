@@ -120,11 +120,14 @@ namespace MixScript
         void UpdateMarker(const CueType type);
         void DeleteMarker();
         void MoveSelectedMarker(const int32_t num_samples);
+        bool Empty()const { return buffer == nullptr; }
 
         const MixerControl& GetControl(const MixScript::SourceAction action) const;
         MixerControl& GetControl(const MixScript::SourceAction action);
 
         ~WaveAudioSource();
+
+        WaveAudioSource();
 
         WaveAudioSource(const char* file_path, const WaveAudioFormat& format_, WaveAudioBuffer* buffer_,
             const AudioRegion& region_, const std::vector<uint32_t>& cue_offsets);

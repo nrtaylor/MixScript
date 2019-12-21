@@ -11,6 +11,8 @@
 
 #include <windows.h> // for debug
 
+constexpr bool TESTING_MODE = false;
+
 //==============================================================================
 MainComponent::MainComponent() :
     menuBar(this),
@@ -27,8 +29,13 @@ MainComponent::MainComponent() :
     track_incoming_visuals = std::unique_ptr<MixScript::TrackVisualCache>(new MixScript::TrackVisualCache());
 
     // Testing
-    mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
-    mixer->LoadIncomingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_martsman.wav");
+    if (TESTING_MODE) {
+        mixer->LoadPlayingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_juju_outro.wav");
+        mixer->LoadIncomingFromFile("C:\\Programming\\MixScript\\mix_script_test_file_martsman.wav");
+    }
+    else {
+        mixer->LoadPlaceholders();
+    }
 
     // UI
     button_loadfile.setButtonText("...");

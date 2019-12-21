@@ -37,6 +37,11 @@ namespace MixScript
         modifier_mono = false;
     }
 
+    void Mixer::LoadPlaceholders() {
+        playing = std::unique_ptr<MixScript::WaveAudioSource>(new MixScript::WaveAudioSource());
+        incoming = std::unique_ptr<MixScript::WaveAudioSource>(new MixScript::WaveAudioSource());
+    }
+
     void Mixer::LoadPlayingFromFile(const char* file_path) {
         playing = std::unique_ptr<MixScript::WaveAudioSource>(std::move(MixScript::LoadWaveFile(file_path)));
         playing->fader_control.Add(GainControl{ 1.f }, playing->audio_start);
@@ -363,12 +368,16 @@ namespace MixScript
         WaveAudioSource& playing_ = *playing.get();
         WaveAudioSource& incoming_ = *incoming.get();
 
+        if (playing_.Empty() && incoming_.Empty()) {
+            return;
+        }
+
         float left = 0;
         float right = 0;
         const bool make_mono = modifier_mono;
 
         // TODO: Figure out template unresolved external bug preventing refactor.
-        if (incoming_.playback_solo && !playing_.playback_solo) {
+        if (incoming_.playback_solo && (!playing_.playback_solo || playing_.Empty())) {
             for (int32_t i = 0; i < samples_to_read; ++i) {
                 left = incoming_.ReadAndProcess(0);
                 // Second read should use first read pos for automation calculation
@@ -383,7 +392,7 @@ namespace MixScript
             incoming_.last_read_pos = static_cast<int32_t>(incoming_.read_pos - incoming_.audio_start);
             return;
         }
-        else if (!incoming_.playback_solo && playing_.playback_solo) {
+        else if (playing_.playback_solo && (!incoming_.playback_solo || incoming_.Empty())) {
             for (int32_t i = 0; i < samples_to_read; ++i) {
                 left = playing_.ReadAndProcess(0);
                 // Second read should use first read pos for automation calculation
