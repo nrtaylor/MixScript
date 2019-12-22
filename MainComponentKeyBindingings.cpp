@@ -37,27 +37,27 @@ void MainComponent::SetUpKeyBindings() {
     key_bindings.emplace_back(LightKeyBinding{ (int)'W', juce::String("Playing +1"), false, false, false,
         [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 1.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
+        track_playing_visuals->gain_automation.dirty = true;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'E', juce::String("Playing +3"), false, false, false,
         [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 3.f, 1 });
-        track_incoming_visuals->gain_automation.dirty = true;
+        track_playing_visuals->gain_automation.dirty = true;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'A', juce::String("Playing -1"), false, false, false,
         [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -1.f, 0 });
-        track_incoming_visuals->gain_automation.dirty = true;
+        track_playing_visuals->gain_automation.dirty = true;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'F', juce::String("Playing Max"), false, false, false,
         [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), 100.f, 0 });
-        track_incoming_visuals->gain_automation.dirty = true;
+        track_playing_visuals->gain_automation.dirty = true;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'G', juce::String("Playing Min"), false, false, false,
         [this]() {
         mixer->HandleAction(MixScript::SourceActionInfo{ mixer->SelectedAction(), -100.f, 0 });
-        track_incoming_visuals->gain_automation.dirty = true;
+        track_playing_visuals->gain_automation.dirty = true;
     } });
     key_bindings.emplace_back(LightKeyBinding{ (int)'S', juce::String("Playing Only"), false, false, false,
         [this]() {
