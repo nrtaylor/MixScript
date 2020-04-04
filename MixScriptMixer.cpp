@@ -568,8 +568,10 @@ namespace MixScript
 
     WaveAudioSource* Mixer::Render() {
         const uint32_t playing_size = static_cast<uint32_t>(playing->audio_end - playing->audio_start);
-        const uint32_t playing_offset = static_cast<uint32_t>(playing->cue_starts.front().start - playing->audio_start);
-        const uint32_t incoming_size = static_cast<uint32_t>(incoming->audio_end - incoming->cue_starts.front().start);
+        const uint32_t playing_offset = playing->cue_starts.size() ?
+            static_cast<uint32_t>(playing->cue_starts.front().start - playing->audio_start) : 0;
+        const uint32_t incoming_size = static_cast<uint32_t>(incoming->audio_end -
+            (incoming->cue_starts.size() ? incoming->cue_starts.front().start : incoming->audio_start));
         const uint32_t render_size = nMath::Max(playing_size, incoming_size + playing_offset);
 
         const uint32_t padding = 4;
